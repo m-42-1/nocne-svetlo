@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Svetlo">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#000000">
+<meta name="format-detection" content="telephone=no">
+<link rel="icon" href="data:,">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAERUlEQVR42u3dPU5qQRjG8VPR0GBlY0FoqEhMbkNlKGistKCyYgksgR3cJbAEl8ASXIJLYAleJxLkKkGB8zUzv3+mUgJmePJ+PPPOsSgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYMvkupgPiuWo+Pun6HXsR97cXhWLYbEaFy/3xdvTdm1m4efIlMebIIjXh09B7NbLvZiRa9ZYjUNg+K4JysiUXifkjoNxYn9tZpSRE/3uD6FCnZGvLH7UxG5RRi5JZDn6VbTYrff2FVm0IT/WFl/WamzbMggYz3enyUJ7kkvAOCmPKDVyCRgnFZ77azmyf+lye/Wf7X3Sen2wf+kyuT4zlXysybUtTJT54HxZvD2F0hWUcXj1u3YxRc4uPxkblCFsyCbCBspVBtcrza61FGW83NvLtLi9usjPcPqaLL3O+R7o9+WMTXvC+MqAx5vSlCGnpJZQyio15JTUOGNyR58ioRjdyDuhnDoH6oA+F5ajkpWh4EiEfrfkOtTQF2Pj2FpP7WsSYaN0ZahGhY1jazG0tVwvrUqqLIaVKIM4UqB0b8NcYCKUNc5zcEEpShyJUlEpShzRU/oxG3HIKcShTyGObLm9qlYZWlneFxNMwUEcWVHitRQHb6lRtTIc2cdKpa65YZ+4KevuvDHBBKliltiAsVZFw5I662lN4lCTEofrkAlR6Um9soPJ4REMxOHhLcQhs6AZccgsxKFnIQ4PqdXKlrs83poJZmqQOASPhKnt4E3wiI/ajuwZYvFRz7CPQ/woqWdM0HgYq8OQR3LUcDWBJ6ZhOdNQdxrXXmq4Dsn2iJUaLlI7rY2Yqh/BoPhQdly0NjP6aCVVP/bp9/pQnLaR+s/uNS8yC33ET4M+uvpDz0If3DD+R5JU9y81LvRPlSDK0mMlqhTTPBX9Gy/n+4JHHfNB5scaDh4trDy+zJ+aT26MpqaOTy1USaSZtqVVnsdxiTRYq75/9HKUXzPVkqO437cz80F9X1KvEz7uY7zy8SbL+PF8F5M+duVIdSr50MT+tuR7+6adntjvY8lyFFqbC4XS64Q3WY4OjGHnPmAQV3I50gCvp+ELXgzDNz25PlzJ9rvb3y6G4cXr6Q+FV6YJJRbbw1B088ml2Yst7cxZjns+G7Z4iw+zBJXTqlGgZhf//gAN3sc3X0IflKF50Z7QB2XIL7IJctUHZZzf3ybsf2xmutaL/bEk/VMjzaX564mVqC5DlH9+m0CK2cyctVYWQmKcD9qf3BEwKg8hscyf7g98CBj1hZDlKI4ss5llOSHcOP1u2wtVlxtaIZFWRZHNjCxalmgWw+ZrkdeH8GdIIu01VesPJB+hgt0ZU1OzGlcbS14fwkdoQ+I24BfD8C2WYsO/3Ie3WgyZ34nmnfkgtJercbg5sp4ezkGb2fa3q3F48XwgawAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADY5x/LD8Qjjmsb7AAAAABJRU5ErkJggg==">
+<title>Nočné svetlo</title>
+<style>
+  :root {
+    --bg: #000;
+    --txt: #7a2e00;
+    --txt-hi: #b04400;
+    --line: #2e1100;
+    --btn: #120500;
+    --acc: #ff5a00;
+  }
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    background: var(--bg); color: var(--txt);
+    overflow: hidden; position: fixed;
+    font: 16px/1.35 -apple-system, "Helvetica Neue", Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  * {
+    box-sizing: border-box;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #stage {
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0;
+    background: #000;
+    touch-action: none;
+    z-index: 1;
+  }
+  #light {
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0;
+    background: #ff5a00;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 2;
+    will-change: opacity;
+  }
+  .msg {
+    position: fixed; left: 16px; right: 16px;
+    text-align: center; font-size: 15px;
+    color: var(--txt);
+    pointer-events: none;
+    z-index: 3;
+    opacity: 0;
+    transition: opacity 800ms ease;
+  }
+  .msg.show { opacity: 1; }
+  #hint { bottom: 64px; bottom: calc(64px + env(safe-area-inset-bottom)); }
+  #countdown {
+    position: fixed; left: 0; right: 0; top: 42%;
+    text-align: center; z-index: 3; pointer-events: none;
+    font-size: 72px; font-weight: 300; line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: #000; opacity: 0;
+    transition: opacity 600ms ease;
+  }
+  #countdown.show { opacity: .85; }
+  #countdown.dim { color: #b04400; }
+  #countdown.dim.show { opacity: .8; }
+  #toast { top: 40px; top: calc(40px + env(safe-area-inset-top)); }
+
+  #listenBtn {
+    position: fixed; z-index: 4;
+    right: 8px; right: max(8px, env(safe-area-inset-right));
+    bottom: 8px; bottom: max(8px, env(safe-area-inset-bottom));
+    min-height: 44px; min-width: 44px; padding: 0 12px;
+    background: transparent; border: 0;
+    color: #3a1500; font-size: 13px;
+  }
+  #listenBtn:active { background: transparent; color: #5a2000; }
+
+  #panel {
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0;
+    background: #000;
+    z-index: 10;
+    display: none;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding: 0 16px 24px;
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+  #panel.open { display: block; }
+  #panel::-webkit-scrollbar { display: none; }
+  .phead {
+    position: -webkit-sticky; position: sticky; top: 0; z-index: 1;
+    display: flex; align-items: center; justify-content: space-between;
+    background: #000;
+    padding: 8px 0;
+    padding-top: max(8px, env(safe-area-inset-top));
+    border-bottom: 1px solid var(--line);
+  }
+  h1 { font-size: 18px; font-weight: 600; margin: 0; color: var(--txt-hi); }
+  .sec { padding: 14px 0 6px; border-bottom: 1px solid var(--line); }
+  .sec:last-child { border-bottom: 0; }
+  h2 {
+    font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--txt); margin: 0 0 12px;
+  }
+  .row { margin: 0 0 14px; }
+  .rh { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; margin: 0 0 4px; }
+  .rh b { font-weight: 600; color: var(--txt-hi); white-space: nowrap; margin-left: 8px; }
+  .small { font-size: 13px; margin: 6px 0 0; }
+  .small:empty { display: none; }
+  button {
+    font: inherit; color: var(--txt-hi);
+    background: var(--btn);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    min-height: 44px; min-width: 44px;
+    padding: 0 12px;
+    touch-action: manipulation;
+    -webkit-appearance: none; appearance: none;
+  }
+  button:active { background: #200a00; }
+  button:disabled { opacity: .6; }
+  .seg { display: flex; }
+  .seg button { flex: 1 1 0; margin-right: 8px; }
+  .seg button:last-child { margin-right: 0; }
+  .seg button[aria-pressed="true"] { border-color: #6a2600; background: #2a0e00; }
+  .wide { width: 100%; }
+  .pair button { width: 100%; }
+  .pair button:first-child { margin-bottom: 10px; }
+  .stepper { display: flex; align-items: center; }
+  .stepper button { width: 52px; font-size: 22px; }
+  .stepper output { flex: 1 1 auto; text-align: center; color: var(--txt-hi); font-size: 17px; white-space: nowrap; }
+  .win { display: flex; }
+  .cell { flex: 1 1 0; }
+  .cell:first-child { margin-right: 10px; }
+  .cell .cap { display: block; font-size: 13px; text-align: center; margin: 0 0 4px; }
+  .cell .stepper button { width: 44px; }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 44px; margin: 0;
+    background: transparent;
+    touch-action: pan-y;
+  }
+  input[type=range]::-webkit-slider-runnable-track { height: 6px; background: var(--line); border-radius: 3px; }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 28px; height: 28px; margin-top: -11px;
+    border-radius: 50%; background: #8a3300; border: 0;
+  }
+  .switch {
+    width: 100%; display: flex; align-items: center; justify-content: space-between;
+    text-align: left; min-height: 52px;
+  }
+  .knob {
+    position: relative; flex: 0 0 auto; width: 52px; height: 30px; margin-left: 10px;
+    border-radius: 15px; background: #0d0400; border: 1px solid var(--line);
+  }
+  .knob:after {
+    content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px;
+    border-radius: 50%; background: #4a1a00; transition: left 150ms ease;
+  }
+  .switch[aria-pressed="true"] .knob { background: #3a1400; border-color: #6a2600; }
+  .switch[aria-pressed="true"] .knob:after { left: 25px; background: #b04400; }
+  .meter {
+    position: relative; height: 14px; border-radius: 4px;
+    background: #0d0400; border: 1px solid var(--line); overflow: hidden;
+  }
+  #meterFill { position: absolute; top: 0; bottom: 0; left: 0; width: 0; background: #5a2000; }
+  #meterFill.over { background: #a03a00; }
+  #meterMark { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--acc); opacity: .7; }
+  .meter.acc { height: 6px; margin-top: 6px; }
+  #accFill { position: absolute; top: 0; bottom: 0; left: 0; width: 0; background: #5a2000; }
+  #soundReason, #soundHit { color: var(--txt-hi); }
+  #diag { font-size: 11px; opacity: .8; word-break: break-word; }
+  #unmute { display: none; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div id="stage" aria-label="Ťuk = svetlo, podrž = nastavenia"></div>
+<div id="light"></div>
+<div id="hint" class="msg">Ťuk = svetlo · podrž 1,5 s = nastavenia</div>
+<div id="toast" class="msg" role="status"></div>
+<div id="countdown" aria-live="off"></div>
+
+<button type="button" id="listenBtn" aria-label="Počúvanie zvuku"></button>
+
+<div id="panel" role="dialog" aria-label="Nastavenia">
+  <div class="phead">
+    <h1>Nastavenia</h1>
+    <button type="button" id="closePanel">Zavrieť</button>
+  </div>
+
+  <section class="sec">
+    <h2>Svetlo</h2>
+    <div class="row">
+      <div class="rh">Farba</div>
+      <div class="seg">
+        <button type="button" id="colOrange" data-color="orange">Oranžová</button>
+        <button type="button" id="colRed" data-color="red">Červená</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="rh">Intenzita <b id="intensityVal"></b></div>
+      <input type="range" id="intensity" min="10" max="100" step="5" aria-label="Intenzita">
+    </div>
+    <div class="row">
+      <div class="rh">Svieti po zapnutí</div>
+      <div class="stepper">
+        <button type="button" id="minDown" aria-label="Menej">−</button>
+        <output id="minutesVal"></output>
+        <button type="button" id="minUp" aria-label="Viac">+</button>
+      </div>
+    </div>
+    <div class="row">
+      <button type="button" class="wide" id="testLight">Otestovať svetlo</button>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>Zvuk</h2>
+    <div class="row">
+      <button type="button" class="switch" id="soundToggle" aria-pressed="false">
+        <span>Rozsvietiť pri zvuku<br><small id="soundToggleVal"></small></span><span class="knob"></span>
+      </button>
+      <p class="small" id="soundOffNote">Zapni, ak sa má svetlo rozsvietiť pri plači.</p>
+      <p class="small" id="micStatus"></p>
+      <p class="small" id="soundReason"></p>
+      <button type="button" class="wide" id="unmute">Zrušiť stíšenie</button>
+    </div>
+    <div id="soundDetails">
+      <div class="row">
+        <div class="rh">Hlasitosť <b id="levelVal">–</b></div>
+        <div class="meter"><div id="meterFill"></div><div id="meterMark"></div></div>
+        <div class="meter acc" aria-label="Akumulátor zvuku"><div id="accFill"></div></div>
+        <p class="small" id="soundHit"></p>
+      </div>
+      <div class="row">
+        <div class="rh">Prah <b id="thresholdVal"></b></div>
+        <input type="range" id="threshold" min="-70" max="-10" step="1" aria-label="Prah">
+      </div>
+      <div class="row">
+        <div class="rh">Zvuk musí trvať aspoň</div>
+        <div class="stepper">
+          <button type="button" id="durDown" aria-label="Menej">−</button>
+          <output id="durVal"></output>
+          <button type="button" id="durUp" aria-label="Viac">+</button>
+        </div>
+      </div>
+      <div class="row pair">
+        <button type="button" id="calibrate">Kalibrovať ticho (5 s)</button>
+        <button type="button" id="soundTest">Otestovať zvuk (1 min)</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>Kedy počúvať</h2>
+    <div class="row win">
+      <div class="cell">
+        <span class="cap">od</span>
+        <div class="stepper">
+          <button type="button" id="fromDown" aria-label="Od skôr">−</button>
+          <output id="fromVal"></output>
+          <button type="button" id="fromUp" aria-label="Od neskôr">+</button>
+        </div>
+      </div>
+      <div class="cell">
+        <span class="cap">do</span>
+        <div class="stepper">
+          <button type="button" id="toDown" aria-label="Do skôr">−</button>
+          <output id="toVal"></output>
+          <button type="button" id="toUp" aria-label="Do neskôr">+</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>Tipy a diagnostika</h2>
+    <p class="small" id="lockInfo">Aby displej nezhasol: Nastavenia → Displej a jas → Automatické zamknutie → Nikdy.</p>
+    <p class="small">Bez bielej výzvy na mikrofón v noci: Nastavenia → Safari → Mikrofón → Povoliť.</p>
+    <p class="small">Tmavý vzhľad (tmavé lišty Safari) a vypnutý Režim nízkej spotreby (ten zamyká displej po 30 s).</p>
+    <p class="small" id="diag"></p>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------- Konštanty ----------
+  var STORAGE_KEY = 'nocne-svetlo-v1';
+  var SETTINGS_VERSION = 5;
+  var COLORS = { orange: '#FF5A00', red: '#FF1000' };
+  var FADE_IN_MS = 1200;
+  var FADE_IN_SOUND_MS = 2500;
+  var FADE_OUT_MS = 4000;
+  var HOLD_MS = 1500;
+  var MOVE_TOLERANCE_PX = 15;
+  var PANEL_IDLE_MS = 2 * 60 * 1000;
+  var MANUAL_MUTE_MS = 5 * 60 * 1000;
+  var TICK_MS = 100;
+  var ACC_UP_MS = 100;
+  var ACC_DOWN_MS = 200;
+  var CALIB_MS = 5000;
+  var DEAD_MIC_MS = 5000;
+  var HINT_MS = 6000;
+  var SOUND_TEST_MS = 60 * 1000;
+  var CTX_REBUILD_MS = 1000;
+  var CTX_RESUME_EVERY_MS = 500;
+  var CTX_REBUILD_EVERY_MS = 30 * 1000;
+  var SAFARI_ADVICE = 'Otvor stránku priamo v Safari – na iOS 15 mikrofón v appke spustenej z plochy často nefunguje.';
+
+  var DEFAULTS = {
+    color: 'orange',
+    intensity: 100,
+    minutes: 5,
+    soundEnabled: true,
+    threshold: -50,
+    minSoundSec: 0.4,
+    listenFrom: 19 * 60,
+    listenTo: 7 * 60 + 30
+  };
+
+  // ---------- Čisté pomocné funkcie ----------
+  function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+
+  function num(v, def, lo, hi, step) {
+    var n = typeof v === 'number' ? v : parseFloat(v);
+    if (!isFinite(n)) return def;
+    n = clamp(n, lo, hi);
+    if (step) n = Math.round(n / step) * step;
+    return Math.round(n * 10) / 10;
+  }
+
+  /** Je čas (minúty od polnoci) v okne od–do? Okno môže ísť cez polnoc. Rovnaké od a do = celý deň. */
+  function inWindow(nowMin, fromMin, toMin) {
+    if (fromMin === toMin) return true;
+    if (fromMin < toMin) return nowMin >= fromMin && nowMin < toMin;
+    return nowMin >= fromMin || nowMin < toMin;
+  }
+
+  function median(arr) {
+    if (!arr.length) return NaN;
+    var s = arr.slice().sort(function (a, b) { return a - b; });
+    var m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+
+  function calibrationThreshold(samples) {
+    return clamp(Math.round(median(samples) + 15), -70, -10);
+  }
+
+  function rmsToDb(rms) { return rms > 0 ? 20 * Math.log10(rms) : -Infinity; }
+
+  function minutesOfDay(ts) { var d = new Date(ts); return d.getHours() * 60 + d.getMinutes(); }
+
+  function fmtTime(min) {
+    var h = Math.floor(min / 60), m = min % 60;
+    return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+  }
+
+  function fmtDec(v) { return v.toFixed(1).replace('.', ','); }
+  function noop() {}
+  function now() { return Date.now(); }
+  function $(id) { return document.getElementById(id); }
+
+  // ---------- Nastavenia ----------
+  var settings = Object.assign({}, DEFAULTS);
+
+  function sanitize(o) {
+    o = o && typeof o === 'object' ? o : {};
+    return {
+      color: o.color === 'red' ? 'red' : 'orange',
+      intensity: num(o.intensity, DEFAULTS.intensity, 10, 100, 5),
+      minutes: num(o.minutes, DEFAULTS.minutes, 1, 10, 1),
+      soundEnabled: o.soundEnabled !== false,
+      threshold: num(o.threshold, DEFAULTS.threshold, -70, -10, 1),
+      minSoundSec: num(o.minSoundSec, DEFAULTS.minSoundSec, 0.3, 3, 0.1),
+      listenFrom: num(o.listenFrom, DEFAULTS.listenFrom, 0, 1439, 1),
+      listenTo: num(o.listenTo, DEFAULTS.listenTo, 0, 1439, 1)
+    };
+  }
+
+  function loadSettings() {
+    var raw = null;
+    try { raw = window.localStorage.getItem(STORAGE_KEY); } catch (e) { raw = null; }
+    var parsed = null;
+    try { parsed = raw ? JSON.parse(raw) : null; } catch (e) { parsed = null; }
+    // v1 ukladala predvolené 3 min; nové predvolené je 5 min (vlastná voľba ostáva).
+    if (parsed && typeof parsed === 'object' && parsed.v === undefined && parsed.minutes === 3) parsed.minutes = 5;
+    // v1/v2 mali predvolené 30 % a 1,0 s; nové predvolené sú 100 % a 0,4 s (vlastná voľba ostáva).
+    if (parsed && typeof parsed === 'object' && !(parsed.v >= 3)) {
+      if (parsed.intensity === 30) parsed.intensity = 100;
+      if (parsed.minSoundSec === 1) parsed.minSoundSec = 0.4;
+    }
+    // Predvolený prah: v1–v3 −40 dBFS, v4 −45 dBFS, teraz −50 dBFS (vlastná voľba ostáva).
+    if (parsed && typeof parsed === 'object') {
+      if (!(parsed.v >= 4) && parsed.threshold === -40) parsed.threshold = -50;
+      if (!(parsed.v >= 5) && parsed.threshold === -45) parsed.threshold = -50;
+    }
+    settings = sanitize(Object.assign({}, DEFAULTS, parsed || {}));
+  }
+
+  function saveSettings() {
+    try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.assign({ v: SETTINGS_VERSION }, settings))); } catch (e) { /* súkromný režim / plné úložisko */ }
+  }
+
+  // ---------- Hlásenia na ploche ----------
+  var el = {};
+  var toastTimer = null;
+  function toast(text, ms) {
+    el.toast.textContent = text;
+    el.toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.toast.classList.remove('show'); }, ms || 2500);
+  }
+
+  // ---------- Svetlo ----------
+  var light = { on: false, source: null, offAt: 0, timer: null };
+  var mutedUntil = 0; // stíšenie automatických spúšťačov po ručnom zhasnutí
+
+  function setLayer(opacity, ms) {
+    el.light.style.transition = 'opacity ' + ms + 'ms ease-in-out';
+    el.light.style.opacity = String(opacity);
+  }
+
+  function scheduleOff() {
+    light.offAt = now() + settings.minutes * 60000;
+    armOffTimer();
+  }
+
+  function armOffTimer() {
+    clearTimeout(light.timer);
+    if (!light.on) return;
+    light.timer = setTimeout(checkOff, Math.max(0, light.offAt - now()));
+  }
+
+  function checkOff() {
+    if (!light.on) return;
+    if (now() >= light.offAt) lightOff('auto');
+    else armOffTimer();
+  }
+
+  function lightOn(source, fadeMs) {
+    light.on = true;
+    light.source = source;
+    document.body.setAttribute('data-light', 'on');
+    el.light.style.background = COLORS[settings.color];
+    setLayer(settings.intensity / 100, fadeMs);
+    scheduleOff();
+    renderCountdown();
+  }
+
+  var countdownTimer = null;
+
+  /** Veľký odpočet do zhasnutia (m:ss), čitateľný z postele. */
+  function renderCountdown() {
+    if (!el.countdown) return;
+    var c = el.countdown;
+    clearTimeout(countdownTimer);
+    if (!light.on) { c.classList.remove('show'); return; }
+    var ms = Math.max(0, light.offAt - now());
+    var left = Math.ceil(ms / 1000);
+    // ďalšie prekreslenie presne na hranici sekundy
+    countdownTimer = setTimeout(renderCountdown, (ms % 1000) || 1000);
+    var m = Math.floor(left / 60), sec = left % 60;
+    var txt = m + ':' + (sec < 10 ? '0' : '') + sec;
+    if (c.textContent !== txt) c.textContent = txt;
+    // Na tlmenom svetle je čierny text nečitateľný → tlmená oranžová.
+    c.className = 'show' + (settings.intensity < 40 ? ' dim' : '');
+  }
+
+  function lightOff(source) {
+    light.on = false;
+    light.source = null;
+    clearTimeout(light.timer);
+    document.body.setAttribute('data-light', 'off');
+    setLayer(0, FADE_OUT_MS);
+    renderCountdown();
+    if (source === 'manual') {
+      var wasListening = settings.soundEnabled && snd.state === 'running' && !soundBlockReason(now());
+      mutedUntil = now() + MANUAL_MUTE_MS;
+      if (wasListening) toast('Zvuk stíšený na 5 min', 2500);
+      renderListenBtn();
+    }
+  }
+
+  /**
+   * Jediný vstup pre všetky spúšťače (ťuk, zvuk, neskôr napr. Home Assistant).
+   * Automatické spúšťače rešpektujú stíšenie po ručnom zhasnutí.
+   */
+  function requestLight(source, opts) {
+    opts = opts || {};
+    if (source === 'manual') {
+      mutedUntil = 0;
+      lightOn(source, FADE_IN_MS);
+      return true;
+    }
+    if (!opts.force && now() < mutedUntil) return false;
+    lightOn(source, opts.fadeMs || FADE_IN_SOUND_MS);
+    return true;
+  }
+
+  function toggleManual() {
+    if (light.on) lightOff('manual');
+    else requestLight('manual');
+  }
+
+  // ---------- Spúšťače ----------
+  // Každý spúšťač: { name, onGesture(): bool (true = gesto spotrebované), onSettings(), stop() }
+  var triggers = [];
+  function registerTrigger(t) { triggers.push(t); }
+
+  // ---------- Zvukový spúšťač ----------
+  var snd = {
+    ctx: null, stream: null, src: null, analyser: null, sink: null,
+    fbuf: null, bbuf: null, useFloat: true,
+    state: 'off',          // off | waiting | starting | running | interrupted | error
+    error: '',
+    attempted: false,      // mikrofón už bol od načítania stránky aspoň raz spúšťaný
+    tick: null, acc: 0, level: -100, zeroMs: 0, dead: false,
+    calib: null,           // { samples: [], endAt }
+    testUntil: 0, testTimer: null, // „Otestovať zvuk" – ignoruje okno aj stíšenie
+    lastHitAt: 0,          // kedy naposledy zvuk spustil svetlo
+    ctxDownMs: 0,
+    gen: 0                 // generácia spustenia mikrofónu – starší prísľub getUserMedia sa zahodí
+  };
+
+  function audioCtxCtor() { return window.AudioContext || window.webkitAudioContext || null; }
+
+  /** Volať synchrónne v obsluhe gesta – vytvorí a/alebo obnoví AudioContext. */
+  function ensureCtx() {
+    var AC = audioCtxCtor();
+    if (!AC) return null;
+    if (!snd.ctx) {
+      try { snd.ctx = new AC(); } catch (e) { return null; }
+      var ctx = snd.ctx;
+      ctx.onstatechange = function () {
+        if (ctx !== snd.ctx) return;
+        if (snd.state === 'running' && ctx.state !== 'running') setSndState('interrupted');
+        else if (snd.state === 'interrupted' && ctx.state === 'running' && trackOk()) setSndState('running');
+      };
+    }
+    if (snd.ctx.state !== 'running' && typeof snd.ctx.resume === 'function') {
+      try { var p = snd.ctx.resume(); if (p && p.then) p.then(onCtxResumed, noop); } catch (e) { /* nič */ }
+    }
+    return snd.ctx;
+  }
+
+  function onCtxResumed() {
+    if (snd.state === 'interrupted' && trackOk() && snd.ctx && snd.ctx.state === 'running') setSndState('running');
+  }
+
+  function currentTrack() {
+    return snd.stream && snd.stream.getAudioTracks ? snd.stream.getAudioTracks()[0] : null;
+  }
+
+  function trackLive() {
+    var t = currentTrack();
+    return !!t && t.readyState !== 'ended';
+  }
+
+  /** Stopa beží a systém ju nestlmil (hovor, Siri). */
+  function trackOk() {
+    var t = currentTrack();
+    return !!t && t.readyState !== 'ended' && !t.muted;
+  }
+
+  function micErrorText(err) {
+    var name = err && err.name ? err.name : '';
+    if (name === 'NotAllowedError' || name === 'SecurityError' || name === 'PermissionDeniedError') {
+      return 'Prístup k mikrofónu bol zamietnutý. ' + SAFARI_ADVICE + ' Potom povoľ mikrofón.';
+    }
+    if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+      return 'Mikrofón sa nenašiel. ' + SAFARI_ADVICE;
+    }
+    if (name === 'unavailable') return 'Mikrofón nie je dostupný. ' + SAFARI_ADVICE;
+    return 'Mikrofón sa nepodarilo spustiť' + (name ? ' (' + name + ')' : '') + '. ' + SAFARI_ADVICE;
+  }
+
+  function setSndState(state, error) {
+    snd.state = state;
+    snd.error = error || '';
+    renderMicStatus();
+    renderListenBtn();
+  }
+
+  function releaseStream() {
+    if (snd.stream) {
+      try { snd.stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) { /* nič */ }
+    }
+    try { if (snd.src) snd.src.disconnect(); } catch (e) { /* nič */ }
+    snd.stream = null; snd.src = null; snd.analyser = null; snd.sink = null;
+  }
+
+  function cancelCalibration() {
+    snd.calib = null;
+    if (el.calibrate) {
+      el.calibrate.disabled = false;
+      el.calibrate.textContent = 'Kalibrovať ticho (5 s)';
+    }
+  }
+
+  function stopMic() {
+    snd.gen++;
+    clearInterval(snd.tick); snd.tick = null;
+    releaseStream();
+    cancelCalibration();
+    snd.acc = 0; snd.level = -100;
+    setSndState(settings.soundEnabled ? 'waiting' : 'off');
+  }
+
+  /**
+   * Spustí mikrofón. Musí byť zavolané z obsluhy gesta (kvôli iOS). Vráti Promise<bool>.
+   * opts.firstTap: prvý ťuk po načítaní – hláška vysvetlí, že svetlo rozsvieti až ďalší ťuk.
+   */
+  function startMic(opts) {
+    opts = opts || {};
+    snd.attempted = true;
+    var gen = ++snd.gen;
+    cancelCalibration();
+    var ctx = ensureCtx();
+    var md = navigator.mediaDevices;
+    if (!ctx || !md || typeof md.getUserMedia !== 'function') {
+      var msg = micErrorText({ name: 'unavailable' });
+      setSndState('error', msg);
+      toast(msg, 9000);
+      return Promise.resolve(false);
+    }
+    clearInterval(snd.tick); snd.tick = null;
+    releaseStream();
+    setSndState('starting');
+    var p;
+    try {
+      p = md.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, video: false });
+    } catch (e) { p = Promise.reject(e); }
+    return p.then(function (stream) {
+      if (gen !== snd.gen || !settings.soundEnabled) {
+        // medzitým prišlo novšie spustenie alebo vypnutie → tento stream zahodiť
+        try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) { /* nič */ }
+        return false;
+      }
+      snd.stream = stream;
+      var track = stream.getAudioTracks ? stream.getAudioTracks()[0] : null;
+      if (track) {
+        track.onended = function () { if (snd.stream === stream) setSndState('interrupted'); };
+        track.onmute = function () { if (snd.stream === stream && snd.state === 'running') setSndState('interrupted'); };
+        track.onunmute = function () {
+          if (snd.stream === stream && snd.state === 'interrupted' && (!snd.ctx || snd.ctx.state === 'running')) setSndState('running');
+        };
+      }
+      connectGraph(ctx, stream);
+      snd.acc = 0; snd.zeroMs = 0; snd.dead = false; snd.ctxDownMs = 0;
+      if (ctx.state !== 'running' && ctx.resume) { try { ctx.resume().then(onCtxResumed, noop); } catch (e) { /* nič */ } }
+      clearInterval(snd.tick);
+      snd.tick = setInterval(soundTick, TICK_MS);
+      setSndState('running');
+      if (opts.firstTap) toast('Počúvam · ďalší ťuk = svetlo', 3500);
+      else toast('Počúvam', 2500);
+      return true;
+    }, function (err) {
+      if (gen !== snd.gen) return false;
+      var msg = micErrorText(err);
+      setSndState('error', msg);
+      toast(msg, 9000);
+      return false;
+    });
+  }
+
+  function connectGraph(ctx, stream) {
+    snd.src = ctx.createMediaStreamSource(stream);
+    snd.analyser = ctx.createAnalyser();
+    snd.analyser.fftSize = 2048;
+    snd.analyser.smoothingTimeConstant = 0;
+    snd.src.connect(snd.analyser);
+    // Safari spracúva len uzly napojené na výstup → nulový zisk, nič nepočuť.
+    snd.sink = null;
+    if (typeof ctx.createGain === 'function') {
+      snd.sink = ctx.createGain();
+      snd.sink.gain.value = 0;
+      snd.analyser.connect(snd.sink);
+      snd.sink.connect(ctx.destination);
+    }
+    snd.useFloat = typeof snd.analyser.getFloatTimeDomainData === 'function';
+    snd.fbuf = snd.useFloat ? new Float32Array(snd.analyser.fftSize) : null;
+    snd.bbuf = snd.useFloat ? null : new Uint8Array(snd.analyser.fftSize);
+  }
+
+  /**
+   * AudioContext po štarte zachytávania niekedy ostane zastavený (Safari zmení audio session).
+   * Počas aktívneho mikrofónu WebKit dovolí spustiť nový kontext aj bez gesta.
+   */
+  function rebuildCtx() {
+    if (!snd.stream || !trackLive()) return;
+    var old = snd.ctx;
+    snd.ctx = null;
+    try { if (snd.src) snd.src.disconnect(); } catch (e) { /* nič */ }
+    try { if (old && old.close) old.close().then(noop, noop); } catch (e) { /* nič */ }
+    var ctx = ensureCtx();
+    if (!ctx) return;
+    try { connectGraph(ctx, snd.stream); } catch (e) { return; }
+    if (ctx.state === 'running' && snd.state === 'interrupted' && trackOk()) setSndState('running');
+  }
+
+  /** RMS aktuálneho okna v dBFS (−Infinity pri digitálnom tichu). */
+  function readDb() {
+    var a = snd.analyser, i, sum = 0, n, v;
+    if (snd.useFloat) {
+      a.getFloatTimeDomainData(snd.fbuf);
+      n = snd.fbuf.length;
+      for (i = 0; i < n; i++) { v = snd.fbuf[i]; sum += v * v; }
+    } else {
+      a.getByteTimeDomainData(snd.bbuf);
+      n = snd.bbuf.length;
+      for (i = 0; i < n; i++) { v = (snd.bbuf[i] - 128) / 128; sum += v * v; }
+    }
+    return rmsToDb(Math.sqrt(sum / n));
+  }
+
+  function soundTick() {
+    if (!snd.analyser) return;
+    var t = now();
+    var ctx = snd.ctx;
+    if (ctx && ctx.state !== 'running') {
+      // Kontext stojí (prerušenie iOS): analyzér vracia starý buffer → nevyhodnocovať.
+      snd.ctxDownMs += TICK_MS;
+      snd.acc = 0;
+      if (snd.ctxDownMs % CTX_RESUME_EVERY_MS === 0 && typeof ctx.resume === 'function') {
+        try { ctx.resume().then(onCtxResumed, noop); } catch (e) { /* nič */ }
+      }
+      if (snd.ctxDownMs >= CTX_REBUILD_MS && (snd.ctxDownMs - CTX_REBUILD_MS) % CTX_REBUILD_EVERY_MS === 0) rebuildCtx();
+      if (panel.open) renderMeter();
+      checkOff();
+      return;
+    }
+    if (snd.ctxDownMs) {
+      snd.ctxDownMs = 0;
+      if (snd.state === 'interrupted' && trackOk()) setSndState('running');
+    }
+    var db = readDb();
+
+    // Watchdog: skutočný mikrofón nikdy nedáva presnú nulu.
+    if (db === -Infinity) {
+      snd.zeroMs += TICK_MS;
+      if (snd.zeroMs >= DEAD_MIC_MS && !snd.dead) { snd.dead = true; renderMicStatus(); }
+    } else if (snd.zeroMs) {
+      snd.zeroMs = 0;
+      if (snd.dead) { snd.dead = false; renderMicStatus(); }
+    }
+    snd.level = Math.max(-100, db);
+
+    if (snd.calib) {
+      snd.calib.samples.push(snd.level);
+      if (t >= snd.calib.endAt) finishCalibration();
+    } else {
+      evaluateSound(snd.level, t);
+    }
+    if (panel.open) renderMeter();
+    checkOff();
+  }
+
+  function soundTesting(t) { return t < snd.testUntil; }
+
+  /** Prečo by zvuk teraz nerozsvietil ('' = nič nebráni). */
+  function soundBlockReason(t) {
+    if (soundTesting(t)) return '';
+    if (!inWindow(minutesOfDay(t), settings.listenFrom, settings.listenTo)) {
+      return 'Mimo časového okna (' + fmtTime(settings.listenFrom) + '–' + fmtTime(settings.listenTo) + ') – zvuk sa teraz ignoruje. Na skúšku použi „Otestovať zvuk".';
+    }
+    if (t < mutedUntil) return 'Stíšené do ' + fmtTime(minutesOfDay(mutedUntil)) + ' po ručnom zhasnutí.';
+    return '';
+  }
+
+  function evaluateSound(db, t) {
+    if (soundBlockReason(t)) {
+      snd.acc = 0;
+      return;
+    }
+    if (db >= settings.threshold) snd.acc += ACC_UP_MS;
+    else snd.acc = Math.max(0, snd.acc - ACC_DOWN_MS);
+    if (snd.acc >= Math.round(settings.minSoundSec * 1000)) {
+      snd.acc = 0;
+      var testing = soundTesting(t);
+      if (requestLight('sound', { fadeMs: FADE_IN_SOUND_MS, force: testing })) {
+        snd.lastHitAt = t;
+        if (testing) toast('Zvuk rozpoznaný – svetlo sa rozsvieti', 3000);
+      }
+    }
+  }
+
+  function startSoundTest() {
+    if (!settings.soundEnabled) { setCalibMsg('Najprv zapni „Rozsvietiť pri zvuku".'); return; }
+    var begin = function () {
+      snd.testUntil = now() + SOUND_TEST_MS;
+      snd.acc = 0;
+      clearTimeout(snd.testTimer);
+      snd.testTimer = setTimeout(function () {
+        snd.testUntil = 0;
+        toast('Test zvuku skončil', 3000);
+      }, SOUND_TEST_MS);
+      closePanel();
+      toast('Test zvuku (1 min) – ozvi sa…', SOUND_TEST_MS);
+    };
+    if (snd.state === 'running' && snd.analyser) { ensureCtx(); begin(); return; }
+    startMic().then(function (ok) { if (ok) begin(); });
+  }
+
+  function startCalibration() {
+    if (!settings.soundEnabled) { setCalibMsg('Najprv zapni „Rozsvietiť pri zvuku".'); return; }
+    var begin = function () {
+      snd.calib = { samples: [], endAt: now() + CALIB_MS };
+      el.calibrate.disabled = true;
+      el.calibrate.textContent = 'Kalibrujem… buď ticho';
+    };
+    if (snd.state === 'running' && snd.analyser) { ensureCtx(); begin(); return; }
+    startMic().then(function (ok) { if (ok) begin(); });
+  }
+
+  function finishCalibration() {
+    var samples = snd.calib.samples;
+    cancelCalibration();
+    if (!samples.length) return;
+    settings.threshold = calibrationThreshold(samples);
+    saveSettings();
+    renderPanel();
+    setCalibMsg('Prah nastavený na ' + settings.threshold + ' dBFS.');
+  }
+
+  function setCalibMsg(text) { snd.calibMsg = text; renderMicStatus(); }
+
+  function soundOnGesture() {
+    if (!settings.soundEnabled) return false;
+    ensureCtx();
+    if (!snd.attempted) {
+      // Prvý ťuk po načítaní len spustí mikrofón (iOS vyžaduje gesto), svetlo nerozsvieti.
+      startMic({ firstTap: true });
+      return true;
+    }
+    if (snd.state === 'interrupted' || snd.dead || (snd.state === 'running' && !trackLive())) {
+      startMic();
+    }
+    return false;
+  }
+
+  registerTrigger({
+    name: 'zvuk',
+    onGesture: soundOnGesture,
+    onSettings: function () {
+      if (!settings.soundEnabled) stopMic();
+    },
+    stop: stopMic
+  });
+
+  // ---------- Panel nastavení ----------
+  var panel = { open: false, idleAt: 0, timer: null };
+
+  function openPanel() {
+    panel.open = true;
+    el.panel.classList.add('open');
+    el.panel.scrollTop = 0;
+    renderPanel();
+    touchPanel();
+  }
+
+  function closePanel() {
+    panel.open = false;
+    el.panel.classList.remove('open');
+    clearTimeout(panel.timer);
+    snd.calibMsg = '';
+  }
+
+  function touchPanel() {
+    panel.idleAt = now() + PANEL_IDLE_MS;
+    clearTimeout(panel.timer);
+    panel.timer = setTimeout(checkPanelIdle, PANEL_IDLE_MS);
+  }
+
+  function checkPanelIdle() {
+    if (!panel.open) return;
+    if (now() >= panel.idleAt) closePanel();
+    else panel.timer = setTimeout(checkPanelIdle, panel.idleAt - now());
+  }
+
+  function renderPanel() {
+    el.colOrange.setAttribute('aria-pressed', String(settings.color === 'orange'));
+    el.colRed.setAttribute('aria-pressed', String(settings.color === 'red'));
+    el.intensity.value = String(settings.intensity);
+    el.intensityVal.textContent = settings.intensity + ' %';
+    el.minutesVal.textContent = settings.minutes + ' min';
+    el.soundToggle.setAttribute('aria-pressed', String(settings.soundEnabled));
+    el.soundToggleVal.textContent = settings.soundEnabled ? 'zapnuté' : 'vypnuté';
+    el.soundDetails.style.display = settings.soundEnabled ? '' : 'none';
+    el.soundOffNote.style.display = settings.soundEnabled ? 'none' : '';
+    el.threshold.value = String(settings.threshold);
+    el.thresholdVal.textContent = String(settings.threshold).replace('-', '−') + ' dBFS';
+    el.durVal.textContent = fmtDec(settings.minSoundSec) + ' s';
+    el.fromVal.textContent = fmtTime(settings.listenFrom);
+    el.toVal.textContent = fmtTime(settings.listenTo);
+    renderMeter();
+    renderMicStatus();
+    renderListenBtn();
+  }
+
+  function dbToPct(db) { return Math.round((clamp(db, -80, 0) + 80) / 80 * 1000) / 10; }
+
+  function renderMeter() {
+    var active = snd.state === 'running' && snd.analyser;
+    el.meterMark.style.left = dbToPct(settings.threshold) + '%';
+    el.meterFill.style.width = (active ? dbToPct(snd.level) : 0) + '%';
+    el.meterFill.className = active && snd.level >= settings.threshold ? 'over' : '';
+    el.levelVal.textContent = active ? (snd.level <= -80 ? '≤ −80' : String(Math.round(snd.level)).replace('-', '−')) + ' dBFS' : '–';
+    var need = Math.round(settings.minSoundSec * 1000);
+    el.accFill.style.width = (active ? Math.min(100, Math.round(snd.acc / need * 100)) : 0) + '%';
+    var t = now();
+    el.soundHit.textContent = snd.lastHitAt && t - snd.lastHitAt < 60000
+      ? 'Zvuk rozsvietil svetlo ✓ (' + fmtClock(snd.lastHitAt) + ')' : '';
+    var reason = settings.soundEnabled ? soundBlockReason(t) : '';
+    el.soundReason.textContent = reason;
+    el.unmute.style.display = settings.soundEnabled && t < mutedUntil ? 'block' : 'none';
+    el.diag.textContent = diagText(need);
+  }
+
+  function fmtClock(ts) {
+    var d = new Date(ts), s = d.getSeconds();
+    return fmtTime(d.getHours() * 60 + d.getMinutes()) + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function diagText(need) {
+    if (!settings.soundEnabled) return '';
+    var c = snd.ctx;
+    var tr = snd.stream && snd.stream.getAudioTracks ? snd.stream.getAudioTracks()[0] : null;
+    return 'AudioContext: ' + (c ? c.state : 'žiadny') +
+      ' · ' + (c && c.sampleRate ? c.sampleRate : '?') + ' Hz' +
+      ' · stopa: ' + (tr ? tr.readyState : 'žiadna') +
+      ' · ' + (snd.analyser ? (snd.useFloat ? 'float' : 'byte') : 'bez analyzéra') +
+      ' · akum.: ' + snd.acc + '/' + need + ' ms';
+  }
+
+  function micStatusText() {
+    var t = now();
+    switch (snd.state) {
+      case 'off': return '';
+      case 'waiting': return 'Mikrofón sa spustí po ťuknutí na obrazovku.';
+      case 'starting': return 'Spúšťam mikrofón…';
+      case 'error': return snd.error;
+      case 'interrupted': return 'Mikrofón je pozastavený – ťukni na obrazovku.';
+      case 'running': {
+        if (snd.dead) return 'Mikrofón nedáva signál – ťukni na obrazovku.';
+        return soundTesting(t) ? 'Počúvam – beží test zvuku.' : 'Počúvam.';
+      }
+    }
+    return '';
+  }
+
+  function renderMicStatus() {
+    if (!el.micStatus) return;
+    var s = micStatusText();
+    if (snd.calibMsg) s += ' ' + snd.calibMsg;
+    el.micStatus.textContent = s;
+  }
+
+  function changed() {
+    saveSettings();
+    triggers.forEach(function (t) { if (t.onSettings) t.onSettings(); });
+    if (light.on) {
+      el.light.style.background = COLORS[settings.color];
+      setLayer(settings.intensity / 100, 300);
+    }
+    renderCountdown();
+    renderPanel();
+  }
+
+  function stepTime(key, delta) {
+    settings[key] = ((settings[key] + delta) % 1440 + 1440) % 1440;
+    changed();
+  }
+
+  function bindPanel() {
+    // Každá interakcia v paneli odďaľuje automatické zatvorenie.
+    ['touchstart', 'mousedown', 'input', 'click', 'scroll'].forEach(function (type) {
+      el.panel.addEventListener(type, touchPanel, { passive: true, capture: true });
+    });
+    el.colOrange.addEventListener('click', function () { settings.color = 'orange'; changed(); });
+    el.colRed.addEventListener('click', function () { settings.color = 'red'; changed(); });
+    el.intensity.addEventListener('input', function () {
+      settings.intensity = num(el.intensity.value, DEFAULTS.intensity, 10, 100, 5); changed();
+    });
+    var setMinutes = function (m) {
+      settings.minutes = clamp(m, 1, 10);
+      if (light.on) scheduleOff(); // odpočet hneď podľa novej hodnoty
+      changed();
+    };
+    el.minDown.addEventListener('click', function () { setMinutes(settings.minutes - 1); });
+    el.minUp.addEventListener('click', function () { setMinutes(settings.minutes + 1); });
+    el.soundToggle.addEventListener('click', function () {
+      settings.soundEnabled = !settings.soundEnabled;
+      changed();
+      if (settings.soundEnabled) startMic(); // klik = gesto → AudioContext aj mikrofón smú štartovať
+    });
+    el.threshold.addEventListener('input', function () {
+      settings.threshold = num(el.threshold.value, DEFAULTS.threshold, -70, -10, 1); changed();
+    });
+    el.durDown.addEventListener('click', function () { settings.minSoundSec = num(settings.minSoundSec - 0.1, 1, 0.3, 3, 0.1); changed(); });
+    el.durUp.addEventListener('click', function () { settings.minSoundSec = num(settings.minSoundSec + 0.1, 1, 0.3, 3, 0.1); changed(); });
+    el.calibrate.addEventListener('click', startCalibration);
+    el.soundTest.addEventListener('click', startSoundTest);
+    el.unmute.addEventListener('click', function () { mutedUntil = 0; renderPanel(); });
+    bindListenBtn();
+    el.fromDown.addEventListener('click', function () { stepTime('listenFrom', -15); });
+    el.fromUp.addEventListener('click', function () { stepTime('listenFrom', 15); });
+    el.toDown.addEventListener('click', function () { stepTime('listenTo', -15); });
+    el.toUp.addEventListener('click', function () { stepTime('listenTo', 15); });
+    el.testLight.addEventListener('click', function () { closePanel(); requestLight('manual'); });
+    el.closePanel.addEventListener('click', closePanel);
+  }
+
+  // ---------- Prepínač počúvania na čiernej ploche ----------
+  function micNeedsTap() {
+    return snd.state === 'waiting' || snd.state === 'interrupted' || snd.state === 'error' || snd.dead;
+  }
+
+  function listenLabel() {
+    var t = now();
+    if (!settings.soundEnabled) return '○ Nepočúvam';
+    if (snd.state === 'starting') return 'Spúšťam mikrofón…';
+    if (micNeedsTap()) return 'Mikrofón – ťukni';
+    if (soundTesting(t)) return '● Test zvuku';
+    if (t < mutedUntil) return 'Stíšené · ' + Math.ceil((mutedUntil - t) / 60000) + ' min';
+    if (!inWindow(minutesOfDay(t), settings.listenFrom, settings.listenTo)) return 'Mimo okna';
+    return '● Počúvam';
+  }
+
+  function renderListenBtn() {
+    if (!el.listenBtn) return;
+    var s = listenLabel();
+    if (el.listenBtn.textContent !== s) el.listenBtn.textContent = s;
+  }
+
+  /** Ťuk na prepínač: zruší stíšenie, obnoví mikrofón, alebo zapne/vypne počúvanie. */
+  function onListenBtn() {
+    if (snd.state === 'starting') return; // čaká sa na povolenie mikrofónu – druhý ťuk by zvuk vypol
+    if (settings.soundEnabled && now() < mutedUntil) {
+      mutedUntil = 0;
+      toast('Stíšenie zrušené', 2000);
+    } else if (settings.soundEnabled && micNeedsTap()) {
+      startMic();
+    } else {
+      settings.soundEnabled = !settings.soundEnabled;
+      changed();
+      if (settings.soundEnabled) startMic(); // v geste → iOS povolí AudioContext aj mikrofón
+      else toast('Nepočúvam', 2000);
+    }
+    renderPanel();
+  }
+
+  function bindListenBtn() {
+    var b = el.listenBtn, opt = { passive: false };
+    b.addEventListener('touchstart', function (e) { e.preventDefault(); e.stopPropagation(); lastTouchAt = now(); }, opt);
+    b.addEventListener('touchend', function (e) { e.preventDefault(); e.stopPropagation(); lastTouchAt = now(); onListenBtn(); }, opt);
+    b.addEventListener('click', function (e) { e.stopPropagation(); if (now() - lastTouchAt < 1000) return; onListenBtn(); });
+    setInterval(renderListenBtn, 1000);
+  }
+
+  // ---------- Gestá na ploche ----------
+  var g = null;
+  var lastTouchAt = 0;
+
+  function gStart(x, y) {
+    if (panel.open) return;
+    if (g) clearTimeout(g.timer);
+    g = { x: x, y: y, moved: false, held: false, timer: null };
+    var cur = g;
+    g.timer = setTimeout(function () {
+      if (g === cur && !cur.moved) { cur.held = true; openPanel(); }
+    }, HOLD_MS);
+  }
+
+  function gMove(x, y) {
+    if (!g || g.moved) return;
+    var dx = x - g.x, dy = y - g.y;
+    if (dx * dx + dy * dy > MOVE_TOLERANCE_PX * MOVE_TOLERANCE_PX) { g.moved = true; clearTimeout(g.timer); }
+  }
+
+  function gEnd() {
+    if (!g) return;
+    var cur = g; g = null;
+    clearTimeout(cur.timer);
+    if (!cur.moved && !cur.held) onTap();
+  }
+
+  function gCancel() { if (g) { clearTimeout(g.timer); g = null; } }
+
+  /** Ťuk: najprv sa opýtame spúšťačov (napr. prvé spustenie mikrofónu), potom prepneme svetlo. */
+  function onTap() {
+    requestWakeLock();
+    var consumed = false;
+    triggers.forEach(function (t) { if (t.onGesture && t.onGesture()) consumed = true; });
+    if (!consumed) toggleManual();
+  }
+
+  function pt(e) {
+    var t = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
+    return t || { clientX: 0, clientY: 0 };
+  }
+
+  function bindStage() {
+    var s = el.stage, opt = { passive: false };
+    s.addEventListener('touchstart', function (e) {
+      e.preventDefault(); lastTouchAt = now();
+      if (e.touches && e.touches.length > 1) { gCancel(); return; }
+      var p = pt(e); gStart(p.clientX, p.clientY);
+    }, opt);
+    s.addEventListener('touchmove', function (e) { e.preventDefault(); var p = pt(e); gMove(p.clientX, p.clientY); }, opt);
+    s.addEventListener('touchend', function (e) { e.preventDefault(); lastTouchAt = now(); var p = pt(e); gMove(p.clientX, p.clientY); gEnd(); }, opt);
+    s.addEventListener('touchcancel', function (e) { e.preventDefault(); gCancel(); }, opt);
+    // Myš – len na testovanie na počítači; ignoruje emulované udalosti po dotyku.
+    s.addEventListener('mousedown', function (e) { if (now() - lastTouchAt < 1000) return; gStart(e.clientX, e.clientY); });
+    s.addEventListener('mousemove', function (e) { if (g) gMove(e.clientX, e.clientY); });
+    s.addEventListener('mouseup', function (e) { if (now() - lastTouchAt < 1000) return; gMove(e.clientX, e.clientY); gEnd(); });
+    s.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, opt);
+  }
+
+  // ---------- Wake Lock (iOS 15 ho nemá → Automatické zamknutie = Nikdy) ----------
+  var wakeLock = null;
+  function requestWakeLock() {
+    if (wakeLock || !('wakeLock' in navigator) || document.visibilityState === 'hidden') return;
+    try {
+      navigator.wakeLock.request('screen').then(function (l) {
+        wakeLock = l;
+        l.addEventListener('release', function () { wakeLock = null; });
+      }, noop);
+    } catch (e) { /* nič */ }
+  }
+
+  function onVisibility() {
+    if (document.visibilityState !== 'visible') return;
+    checkOff();
+    requestWakeLock();
+    if (snd.state === 'running' && (!trackLive() || (snd.ctx && snd.ctx.state !== 'running'))) setSndState('interrupted');
+    renderMicStatus();
+  }
+
+  // ---------- Štart ----------
+  function init() {
+    ['stage', 'light', 'hint', 'toast', 'panel', 'colOrange', 'colRed', 'intensity', 'intensityVal',
+      'minDown', 'minUp', 'minutesVal', 'soundToggle', 'soundToggleVal', 'micStatus', 'levelVal',
+      'meterFill', 'meterMark', 'accFill', 'soundHit', 'soundReason', 'unmute', 'diag', 'soundTest', 'countdown', 'soundDetails', 'soundOffNote', 'listenBtn', 'threshold', 'thresholdVal', 'durDown', 'durUp', 'durVal', 'calibrate',
+      'fromDown', 'fromUp', 'fromVal', 'toDown', 'toUp', 'toVal', 'lockInfo', 'testLight', 'closePanel'
+    ].forEach(function (id) { el[id] = $(id); });
+
+    loadSettings();
+    snd.state = settings.soundEnabled ? 'waiting' : 'off';
+    document.body.setAttribute('data-light', 'off');
+    el.light.style.background = COLORS[settings.color];
+    if ('wakeLock' in navigator) {
+      el.lockInfo.textContent = 'Displej drží zapnutý Wake Lock. Pre istotu: Nastavenia → Displej a jas → Automatické zamknutie → Nikdy.';
+    }
+    bindStage();
+    bindPanel();
+    renderPanel();
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pageshow', onVisibility);
+    requestWakeLock();
+
+    el.hint.classList.add('show');
+    setTimeout(function () { el.hint.classList.remove('show'); }, HINT_MS);
+  }
+
+  init();
+
+  // Rozhranie pre testy a budúce spúšťače (napr. Home Assistant).
+  window.__nocneSvetlo = {
+    inWindow: inWindow,
+    median: median,
+    calibrationThreshold: calibrationThreshold,
+    rmsToDb: rmsToDb,
+    clamp: clamp,
+    requestLight: requestLight,
+    registerTrigger: registerTrigger,
+    getState: function () {
+      return {
+        lightOn: light.on, lightSource: light.source, offAt: light.offAt,
+        mutedUntil: mutedUntil, panelOpen: panel.open,
+        sound: { state: snd.state, error: snd.error, acc: snd.acc, level: snd.level, dead: snd.dead, attempted: snd.attempted, testUntil: snd.testUntil, lastHitAt: snd.lastHitAt, ctxState: snd.ctx ? snd.ctx.state : null },
+        settings: Object.assign({}, settings)
+      };
+    }
+  };
+})();
+</script>
+</body>
+</html>
