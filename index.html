@@ -71,6 +71,17 @@
   #countdown.show { opacity: .85; }
   #countdown.dim { color: #b04400; }
   #countdown.dim.show { opacity: .8; }
+  /* Denný čas: v tme takmer čierny, pri svetle tlmený – rovnaké miesto v oboch stavoch. */
+  #clock {
+    position: fixed; left: 0; right: 0; top: 20%;
+    text-align: center; z-index: 3; pointer-events: none;
+    font-size: 64px; font-weight: 200; line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: #2a0c00;
+    transition: color 1s ease, opacity 1s ease;
+  }
+  #clock.lit { color: #000; opacity: .35; }
+  #clock.lit.dim { color: #b04400; opacity: .45; }
   #toast { top: 40px; top: calc(40px + env(safe-area-inset-top)); }
 
   #listenBtn {
@@ -190,6 +201,7 @@
 <div id="light"></div>
 <div id="hint" class="msg">Ťuk = svetlo · podrž 1,5 s = nastavenia</div>
 <div id="toast" class="msg" role="status"></div>
+<div id="clock" aria-hidden="true"></div>
 <div id="countdown" aria-live="off"></div>
 
 <button type="button" id="listenBtn" aria-label="Počúvanie zvuku"></button>
@@ -460,6 +472,7 @@
     setLayer(settings.intensity / 100, fadeMs);
     scheduleOff();
     renderCountdown();
+    renderClock();
   }
 
   var countdownTimer = null;
@@ -478,7 +491,22 @@
     var txt = m + ':' + (sec < 10 ? '0' : '') + sec;
     if (c.textContent !== txt) c.textContent = txt;
     // Na tlmenom svetle je čierny text nečitateľný → tlmená oranžová.
-    c.className = 'show' + (settings.intensity < 40 ? ' dim' : '');
+    c.className = 'show' + (lowLight() ? ' dim' : '');
+  }
+
+  function lowLight() { return settings.intensity < 40; }
+
+  var clockTimer = null;
+
+  /** Denný čas HH:MM na ploche; prekreslí sa presne na začiatku ďalšej minúty. */
+  function renderClock() {
+    if (!el.clock) return;
+    clearTimeout(clockTimer);
+    var t = now();
+    var txt = fmtTime(minutesOfDay(t));
+    if (el.clock.textContent !== txt) el.clock.textContent = txt;
+    el.clock.className = light.on ? 'lit' + (lowLight() ? ' dim' : '') : '';
+    clockTimer = setTimeout(renderClock, 60000 - (t % 60000) + 20);
   }
 
   function lightOff(source) {
@@ -488,6 +516,7 @@
     document.body.setAttribute('data-light', 'off');
     setLayer(0, FADE_OUT_MS);
     renderCountdown();
+    renderClock();
     if (source === 'manual') {
       var wasListening = settings.soundEnabled && snd.state === 'running' && !soundBlockReason(now());
       mutedUntil = now() + MANUAL_MUTE_MS;
@@ -978,6 +1007,7 @@
       setLayer(settings.intensity / 100, 300);
     }
     renderCountdown();
+    renderClock();
     renderPanel();
   }
 
@@ -1147,6 +1177,7 @@
   function onVisibility() {
     if (document.visibilityState !== 'visible') return;
     checkOff();
+    renderClock(); // časovače v pozadí stoja → hneď aktuálny čas
     requestWakeLock();
     if (snd.state === 'running' && (!trackLive() || (snd.ctx && snd.ctx.state !== 'running'))) setSndState('interrupted');
     renderMicStatus();
@@ -1156,7 +1187,7 @@
   function init() {
     ['stage', 'light', 'hint', 'toast', 'panel', 'colOrange', 'colRed', 'intensity', 'intensityVal',
       'minDown', 'minUp', 'minutesVal', 'soundToggle', 'soundToggleVal', 'micStatus', 'levelVal',
-      'meterFill', 'meterMark', 'accFill', 'soundHit', 'soundReason', 'unmute', 'diag', 'soundTest', 'countdown', 'soundDetails', 'soundOffNote', 'listenBtn', 'threshold', 'thresholdVal', 'durDown', 'durUp', 'durVal', 'calibrate',
+      'meterFill', 'meterMark', 'accFill', 'soundHit', 'soundReason', 'unmute', 'diag', 'soundTest', 'countdown', 'clock', 'soundDetails', 'soundOffNote', 'listenBtn', 'threshold', 'thresholdVal', 'durDown', 'durUp', 'durVal', 'calibrate',
       'fromDown', 'fromUp', 'fromVal', 'toDown', 'toUp', 'toVal', 'lockInfo', 'testLight', 'closePanel'
     ].forEach(function (id) { el[id] = $(id); });
 
@@ -1170,6 +1201,7 @@
     bindStage();
     bindPanel();
     renderPanel();
+    renderClock();
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('pageshow', onVisibility);
     requestWakeLock();
