@@ -60,28 +60,40 @@
   }
   .msg.show { opacity: 1; }
   #hint { bottom: 64px; bottom: calc(64px + env(safe-area-inset-bottom)); }
-  #countdown {
-    position: fixed; left: 0; right: 0; top: 42%;
-    text-align: center; z-index: 3; pointer-events: none;
-    font-size: 72px; font-weight: 300; line-height: 1;
+  /* Ciferník: hodiny a odpočet ako jeden celok v strede obrazovky. Odpočet si drží miesto aj skrytý,
+     takže hodiny sú v tme aj pri svetle na rovnakom mieste (mierne nad stredom). */
+  #face {
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 3;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+    pointer-events: none; text-align: center;
     font-variant-numeric: tabular-nums;
+  }
+  /* Denný čas: v tme takmer čierny, pri svetle tlmený. */
+  #clock {
+    font-size: 72px; font-weight: 200; line-height: 1; letter-spacing: .02em;
+    color: #2a0c00;
+    transition: color 1s ease, opacity 1s ease;
+  }
+  #clock.lit { color: #000; opacity: .35; }
+  #clock.lit.dim { color: #b04400; opacity: .45; }
+  #countdown {
+    margin-top: 36px; height: 72px;
+    font-size: 72px; font-weight: 300; line-height: 1;
     color: #000; opacity: 0;
     transition: opacity 600ms ease;
   }
   #countdown.show { opacity: .85; }
   #countdown.dim { color: #b04400; }
   #countdown.dim.show { opacity: .8; }
-  /* Denný čas: v tme takmer čierny, pri svetle tlmený – rovnaké miesto v oboch stavoch. */
-  #clock {
-    position: fixed; left: 0; right: 0; top: 20%;
-    text-align: center; z-index: 3; pointer-events: none;
-    font-size: 64px; font-weight: 200; line-height: 1;
-    font-variant-numeric: tabular-nums;
-    color: #2a0c00;
-    transition: color 1s ease, opacity 1s ease;
+  #countdownCap {
+    margin-top: 10px;
+    font-size: 13px; letter-spacing: .14em; text-transform: uppercase;
+    color: #000; opacity: 0;
+    transition: opacity 600ms ease;
   }
-  #clock.lit { color: #000; opacity: .35; }
-  #clock.lit.dim { color: #b04400; opacity: .45; }
+  #countdown.show + #countdownCap { opacity: .5; }
+  #countdown.dim + #countdownCap { color: #b04400; }
   #toast { top: 40px; top: calc(40px + env(safe-area-inset-top)); }
 
   #listenBtn {
@@ -201,8 +213,11 @@
 <div id="light"></div>
 <div id="hint" class="msg">Ťuk = svetlo · podrž 1,5 s = nastavenia</div>
 <div id="toast" class="msg" role="status"></div>
-<div id="clock" aria-hidden="true"></div>
-<div id="countdown" aria-live="off"></div>
+<div id="face">
+  <div id="clock" aria-hidden="true"></div>
+  <div id="countdown" aria-live="off"></div>
+  <div id="countdownCap">do zhasnutia</div>
+</div>
 
 <button type="button" id="listenBtn" aria-label="Počúvanie zvuku"></button>
 
