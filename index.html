@@ -60,28 +60,35 @@
   }
   .msg.show { opacity: 1; }
   #hint { bottom: 64px; bottom: calc(64px + env(safe-area-inset-bottom)); }
-  /* Ciferník: v tme len veľké hodiny cez celú obrazovku; pri svetle menšie hodiny a pod nimi odpočet.
-     Veľkosti podľa výšky aj šírky, aby sedeli na výšku aj na šírku (iPhone ležiaci naležato). */
-  #face {
+  /* Dve samostatné vrstvy, ktoré sa len prelínajú (bez zmeny veľkosti písma – Safari by inak
+     nechal na obrazovke zvyšky starých číslic):
+     #bigClock = v tme veľký denný čas cez celú obrazovku, takmer čierny;
+     #face     = pri svetle menší denný čas, pod ním odpočet a „do zhasnutia". */
+  #bigClock, #face {
     position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 3;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     padding: env(safe-area-inset-top) 8px env(safe-area-inset-bottom);
-    pointer-events: none; text-align: center;
-    font-variant-numeric: tabular-nums;
+    pointer-events: none; text-align: center; white-space: nowrap;
+    font-variant-numeric: tabular-nums; line-height: 1;
+    transition: opacity 600ms ease;
+    will-change: opacity;
   }
-  /* Denný čas: v tme obrovský a takmer čierny, pri svetle menší a tlmený. */
-  #clock {
+  #bigClock {
     font-size: 36vw; font-size: min(36vw, 70vh);
-    font-weight: 200; line-height: 1; white-space: nowrap;
-    color: #220a00;
-    transition: color 1s ease, opacity 1s ease;
+    font-weight: 200; color: #220a00;
   }
-  #clock.lit { font-size: 20vw; font-size: min(20vw, 22vh); color: #000; opacity: .5; font-weight: 300; }
+  #face { opacity: 0; }
+  body[data-light="on"] #bigClock { opacity: 0; }
+  body[data-light="on"] #face { opacity: 1; }
+  #clock {
+    font-size: 20vw; font-size: min(20vw, 22vh);
+    font-weight: 300; color: #000; opacity: .5;
+  }
   #clock.lit.dim { color: #b04400; opacity: .6; }
   #countdown {
     margin-top: 5vh; height: 1em;
     font-size: 25vw; font-size: min(25vw, 28vh);
-    font-weight: 500; line-height: 1;
+    font-weight: 500;
     color: #000; opacity: 0;
     transition: opacity 600ms ease;
   }
@@ -96,8 +103,6 @@
   }
   #countdown.show + #countdownCap { opacity: .5; }
   #countdown.dim + #countdownCap { color: #b04400; }
-  /* V tme odpočet nezaberá miesto → hodiny sú presne v strede. */
-  body[data-light="off"] #countdown, body[data-light="off"] #countdownCap { display: none; }
   @media (orientation: landscape) {
     #hint { bottom: 14px; }
     #toast { top: 10px; }
@@ -221,6 +226,7 @@
 <div id="light"></div>
 <div id="hint" class="msg">Ťuk = svetlo · podrž 1,5 s = nastavenia</div>
 <div id="toast" class="msg" role="status"></div>
+<div id="bigClock" aria-hidden="true"></div>
 <div id="face">
   <div id="clock" aria-hidden="true"></div>
   <div id="countdown" aria-live="off"></div>
@@ -528,6 +534,7 @@
     var t = now();
     var txt = fmtTime(minutesOfDay(t));
     if (el.clock.textContent !== txt) el.clock.textContent = txt;
+    if (el.bigClock.textContent !== txt) el.bigClock.textContent = txt;
     el.clock.className = light.on ? 'lit' + (lowLight() ? ' dim' : '') : '';
     clockTimer = setTimeout(renderClock, 60000 - (t % 60000) + 20);
   }
@@ -1210,7 +1217,7 @@
   function init() {
     ['stage', 'light', 'hint', 'toast', 'panel', 'colOrange', 'colRed', 'intensity', 'intensityVal',
       'minDown', 'minUp', 'minutesVal', 'soundToggle', 'soundToggleVal', 'micStatus', 'levelVal',
-      'meterFill', 'meterMark', 'accFill', 'soundHit', 'soundReason', 'unmute', 'diag', 'soundTest', 'countdown', 'clock', 'soundDetails', 'soundOffNote', 'listenBtn', 'threshold', 'thresholdVal', 'durDown', 'durUp', 'durVal', 'calibrate',
+      'meterFill', 'meterMark', 'accFill', 'soundHit', 'soundReason', 'unmute', 'diag', 'soundTest', 'countdown', 'clock', 'bigClock', 'soundDetails', 'soundOffNote', 'listenBtn', 'threshold', 'thresholdVal', 'durDown', 'durUp', 'durVal', 'calibrate',
       'fromDown', 'fromUp', 'fromVal', 'toDown', 'toUp', 'toVal', 'lockInfo', 'testLight', 'closePanel'
     ].forEach(function (id) { el[id] = $(id); });
 
