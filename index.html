@@ -60,26 +60,28 @@
   }
   .msg.show { opacity: 1; }
   #hint { bottom: 64px; bottom: calc(64px + env(safe-area-inset-bottom)); }
-  /* Ciferník: hodiny a odpočet ako jeden celok v strede obrazovky. Odpočet si drží miesto aj skrytý,
-     takže hodiny sú v tme aj pri svetle na rovnakom mieste (mierne nad stredom). */
+  /* Ciferník: v tme len veľké hodiny cez celú obrazovku; pri svetle menšie hodiny a pod nimi odpočet.
+     Veľkosti podľa výšky aj šírky, aby sedeli na výšku aj na šírku (iPhone ležiaci naležato). */
   #face {
     position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 3;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+    padding: env(safe-area-inset-top) 8px env(safe-area-inset-bottom);
     pointer-events: none; text-align: center;
     font-variant-numeric: tabular-nums;
   }
-  /* Denný čas: v tme takmer čierny, pri svetle tlmený. */
+  /* Denný čas: v tme obrovský a takmer čierny, pri svetle menší a tlmený. */
   #clock {
-    font-size: 72px; font-weight: 200; line-height: 1; letter-spacing: .02em;
-    color: #2a0c00;
+    font-size: 36vw; font-size: min(36vw, 70vh);
+    font-weight: 200; line-height: 1; white-space: nowrap;
+    color: #220a00;
     transition: color 1s ease, opacity 1s ease;
   }
-  #clock.lit { color: #000; opacity: .5; font-weight: 300; }
+  #clock.lit { font-size: 20vw; font-size: min(20vw, 22vh); color: #000; opacity: .5; font-weight: 300; }
   #clock.lit.dim { color: #b04400; opacity: .6; }
   #countdown {
-    margin-top: 36px; height: 80px;
-    font-size: 80px; font-weight: 500; line-height: 1;
+    margin-top: 5vh; height: 1em;
+    font-size: 25vw; font-size: min(25vw, 28vh);
+    font-weight: 500; line-height: 1;
     color: #000; opacity: 0;
     transition: opacity 600ms ease;
   }
@@ -87,13 +89,19 @@
   #countdown.dim { color: #b04400; }
   #countdown.dim.show { opacity: .9; }
   #countdownCap {
-    margin-top: 10px;
+    margin-top: 8px;
     font-size: 13px; letter-spacing: .14em; text-transform: uppercase;
     color: #000; opacity: 0;
     transition: opacity 600ms ease;
   }
   #countdown.show + #countdownCap { opacity: .5; }
   #countdown.dim + #countdownCap { color: #b04400; }
+  /* V tme odpočet nezaberá miesto → hodiny sú presne v strede. */
+  body[data-light="off"] #countdown, body[data-light="off"] #countdownCap { display: none; }
+  @media (orientation: landscape) {
+    #hint { bottom: 14px; }
+    #toast { top: 10px; }
+  }
   #toast { top: 40px; top: calc(40px + env(safe-area-inset-top)); }
 
   #listenBtn {
