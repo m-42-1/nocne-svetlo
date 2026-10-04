@@ -219,12 +219,30 @@
   #soundReason, #soundHit { color: var(--txt-hi); }
   #diag { font-size: 11px; opacity: .8; word-break: break-word; }
   #unmute { display: none; margin-top: 8px; }
+  /* Dva stĺpce na šírku; na výšku jeden (bez flex gap – Safari 15). */
+  .cols { display: flex; flex-wrap: wrap; margin: 0 -8px; }
+  .cols > .sec { flex: 1 1 250px; margin: 0 8px; min-width: 0; }
+  #advToggle { margin: 12px 0 4px; }
+  /* Výzva pri výpadku mikrofónu: výraznejšia ako hodiny, ale tlmená. */
+  #micWarn {
+    position: fixed; left: 0; right: 0; z-index: 4; pointer-events: none;
+    bottom: 60px; bottom: calc(60px + env(safe-area-inset-bottom));
+    text-align: center; font-size: 15px; letter-spacing: .12em; text-transform: uppercase;
+    color: #6a2600; opacity: 0; transition: opacity 600ms ease;
+  }
+  #micWarn.show { opacity: 1; }
+  @media (orientation: landscape) {
+    .sec { padding: 10px 0 2px; }
+    .row { margin-bottom: 10px; }
+    h2 { margin-bottom: 8px; }
+    #micWarn { bottom: 14px; }
+  }
 </style>
 </head>
 <body>
 <div id="stage" aria-label="Ťuk = svetlo, podrž = nastavenia"></div>
 <div id="light"></div>
-<div id="hint" class="msg">Ťuk = svetlo · podrž 1,5 s = nastavenia</div>
+<div id="hint" class="msg">Ťuk = svetlo · podrž 1 s = nastavenia</div>
 <div id="toast" class="msg" role="status"></div>
 <div id="bigClock" aria-hidden="true"></div>
 <div id="face">
@@ -234,6 +252,7 @@
 </div>
 
 <button type="button" id="listenBtn" aria-label="Počúvanie zvuku"></button>
+<div id="micWarn" role="status">Mikrofón nepočúva – ťukni</div>
 
 <div id="panel" role="dialog" aria-label="Nastavenia">
   <div class="phead">
@@ -241,98 +260,113 @@
     <button type="button" id="closePanel">Zavrieť</button>
   </div>
 
-  <section class="sec">
-    <h2>Svetlo</h2>
-    <div class="row">
-      <div class="rh">Farba</div>
-      <div class="seg">
-        <button type="button" id="colOrange" data-color="orange">Oranžová</button>
-        <button type="button" id="colRed" data-color="red">Červená</button>
-      </div>
-    </div>
-    <div class="row">
-      <div class="rh">Intenzita <b id="intensityVal"></b></div>
-      <input type="range" id="intensity" min="10" max="100" step="5" aria-label="Intenzita">
-    </div>
-    <div class="row">
-      <div class="rh">Svieti po zapnutí</div>
-      <div class="stepper">
-        <button type="button" id="minDown" aria-label="Menej">−</button>
-        <output id="minutesVal"></output>
-        <button type="button" id="minUp" aria-label="Viac">+</button>
-      </div>
-    </div>
-    <div class="row">
-      <button type="button" class="wide" id="testLight">Otestovať svetlo</button>
-    </div>
-  </section>
-
-  <section class="sec">
-    <h2>Zvuk</h2>
-    <div class="row">
-      <button type="button" class="switch" id="soundToggle" aria-pressed="false">
-        <span>Rozsvietiť pri zvuku<br><small id="soundToggleVal"></small></span><span class="knob"></span>
-      </button>
-      <p class="small" id="soundOffNote">Zapni, ak sa má svetlo rozsvietiť pri plači.</p>
-      <p class="small" id="micStatus"></p>
-      <p class="small" id="soundReason"></p>
-      <button type="button" class="wide" id="unmute">Zrušiť stíšenie</button>
-    </div>
-    <div id="soundDetails">
+  <div class="cols">
+    <section class="sec">
+      <h2>Zvuk</h2>
       <div class="row">
-        <div class="rh">Hlasitosť <b id="levelVal">–</b></div>
-        <div class="meter"><div id="meterFill"></div><div id="meterMark"></div></div>
-        <div class="meter acc" aria-label="Akumulátor zvuku"><div id="accFill"></div></div>
-        <p class="small" id="soundHit"></p>
+        <button type="button" class="switch" id="soundToggle" aria-pressed="false">
+          <span>Rozsvietiť pri zvuku<br><small id="soundToggleVal"></small></span><span class="knob"></span>
+        </button>
+        <p class="small" id="soundOffNote">Zapni, ak sa má svetlo rozsvietiť pri plači.</p>
+        <p class="small" id="micStatus"></p>
+        <p class="small" id="soundReason"></p>
+        <button type="button" class="wide" id="unmute">Zrušiť stíšenie</button>
       </div>
-      <div class="row">
-        <div class="rh">Prah <b id="thresholdVal"></b></div>
-        <input type="range" id="threshold" min="-70" max="-10" step="1" aria-label="Prah">
-      </div>
-      <div class="row">
-        <div class="rh">Zvuk musí trvať aspoň</div>
-        <div class="stepper">
-          <button type="button" id="durDown" aria-label="Menej">−</button>
-          <output id="durVal"></output>
-          <button type="button" id="durUp" aria-label="Viac">+</button>
+      <div id="soundDetails">
+        <div class="row">
+          <div class="rh">Hlasitosť <b id="levelVal">–</b></div>
+          <div class="meter"><div id="meterFill"></div><div id="meterMark"></div></div>
+          <div class="meter acc" aria-label="Akumulátor zvuku"><div id="accFill"></div></div>
+          <p class="small" id="soundHit"></p>
+        </div>
+        <div class="row">
+          <button type="button" class="wide" id="soundTest">Otestovať zvuk (1 min)</button>
         </div>
       </div>
-      <div class="row pair">
-        <button type="button" id="calibrate">Kalibrovať ticho (5 s)</button>
-        <button type="button" id="soundTest">Otestovať zvuk (1 min)</button>
-      </div>
-    </div>
-  </section>
+    </section>
 
-  <section class="sec">
-    <h2>Kedy počúvať</h2>
-    <div class="row win">
-      <div class="cell">
-        <span class="cap">od</span>
+    <section class="sec">
+      <h2>Svetlo a čas</h2>
+      <div class="row">
+        <div class="rh">Svieti po zapnutí</div>
         <div class="stepper">
-          <button type="button" id="fromDown" aria-label="Od skôr">−</button>
-          <output id="fromVal"></output>
-          <button type="button" id="fromUp" aria-label="Od neskôr">+</button>
+          <button type="button" id="minDown" aria-label="Menej">−</button>
+          <output id="minutesVal"></output>
+          <button type="button" id="minUp" aria-label="Viac">+</button>
         </div>
       </div>
-      <div class="cell">
-        <span class="cap">do</span>
-        <div class="stepper">
-          <button type="button" id="toDown" aria-label="Do skôr">−</button>
-          <output id="toVal"></output>
-          <button type="button" id="toUp" aria-label="Do neskôr">+</button>
+      <div class="rh">Kedy počúvať</div>
+      <div class="row win">
+        <div class="cell">
+          <span class="cap">od</span>
+          <div class="stepper">
+            <button type="button" id="fromDown" aria-label="Od skôr">−</button>
+            <output id="fromVal"></output>
+            <button type="button" id="fromUp" aria-label="Od neskôr">+</button>
+          </div>
+        </div>
+        <div class="cell">
+          <span class="cap">do</span>
+          <div class="stepper">
+            <button type="button" id="toDown" aria-label="Do skôr">−</button>
+            <output id="toVal"></output>
+            <button type="button" id="toUp" aria-label="Do neskôr">+</button>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
+  </div>
 
-  <section class="sec">
-    <h2>Tipy a diagnostika</h2>
-    <p class="small" id="lockInfo">Aby displej nezhasol: Nastavenia → Displej a jas → Automatické zamknutie → Nikdy.</p>
-    <p class="small">Bez bielej výzvy na mikrofón v noci: Nastavenia → Safari → Mikrofón → Povoliť.</p>
-    <p class="small">Tmavý vzhľad (tmavé lišty Safari) a vypnutý Režim nízkej spotreby (ten zamyká displej po 30 s).</p>
-    <p class="small" id="diag"></p>
-  </section>
+  <button type="button" class="wide" id="advToggle" aria-expanded="false" aria-controls="advanced">Rozšírené ▾</button>
+
+  <div id="advanced" hidden>
+    <div class="cols">
+      <section class="sec">
+        <h2>Svetlo</h2>
+        <div class="row">
+          <div class="rh">Farba</div>
+          <div class="seg">
+            <button type="button" id="colOrange" data-color="orange">Oranžová</button>
+            <button type="button" id="colRed" data-color="red">Červená</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="rh">Intenzita <b id="intensityVal"></b></div>
+          <input type="range" id="intensity" min="10" max="100" step="5" aria-label="Intenzita">
+        </div>
+        <div class="row">
+          <button type="button" class="wide" id="testLight">Otestovať svetlo</button>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2>Detekcia zvuku</h2>
+        <div class="row">
+          <div class="rh">Prah <b id="thresholdVal"></b></div>
+          <input type="range" id="threshold" min="-65" max="-35" step="1" aria-label="Prah">
+        </div>
+        <div class="row">
+          <div class="rh">Zvuk musí trvať aspoň</div>
+          <div class="stepper">
+            <button type="button" id="durDown" aria-label="Menej">−</button>
+            <output id="durVal"></output>
+            <button type="button" id="durUp" aria-label="Viac">+</button>
+          </div>
+        </div>
+        <div class="row">
+          <button type="button" class="wide" id="calibrate">Kalibrovať ticho (5 s)</button>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2>Tipy a diagnostika</h2>
+        <p class="small" id="lockInfo">Aby displej nezhasol: Nastavenia → Displej a jas → Automatické zamknutie → Nikdy.</p>
+        <p class="small">Bez bielej výzvy na mikrofón v noci: Nastavenia → Safari → Mikrofón → Povoliť.</p>
+        <p class="small">Tmavý vzhľad (tmavé lišty Safari) a vypnutý Režim nízkej spotreby (ten zamyká displej po 30 s).</p>
+        <p class="small" id="diag"></p>
+      </section>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -341,12 +375,12 @@
 
   // ---------- Konštanty ----------
   var STORAGE_KEY = 'nocne-svetlo-v1';
-  var SETTINGS_VERSION = 5;
+  var SETTINGS_VERSION = 6;
   var COLORS = { orange: '#FF5A00', red: '#FF1000' };
   var FADE_IN_MS = 1200;
   var FADE_IN_SOUND_MS = 2500;
   var FADE_OUT_MS = 4000;
-  var HOLD_MS = 1500;
+  var HOLD_MS = 1000;
   var MOVE_TOLERANCE_PX = 15;
   var PANEL_IDLE_MS = 2 * 60 * 1000;
   var MANUAL_MUTE_MS = 5 * 60 * 1000;
@@ -356,6 +390,13 @@
   var CALIB_MS = 5000;
   var DEAD_MIC_MS = 5000;
   var HINT_MS = 6000;
+  var THR_MIN = -65, THR_MAX = -35;      // rozsah prahu (dBFS)
+  var SUPERVISE_MS = 2000;               // dozor nad mikrofónom
+  var UNHEALTHY_GRACE_MS = 1500;         // krátke výpadky rieši soundTick (resume/prestavba)
+  var WARN_AFTER_MS = 3000;              // výzva „ťukni" až keď výpadok trvá
+  var TICK_STALE_MS = 2000;              // zvukový tik zamrzol
+  var RESTART_BACKOFF_MS = [2000, 5000, 15000, 30000, 60000];
+  var RECHECK_AFTER_EVENT_MS = 700;      // po otočení / návrate / Asistovanom prístupe
   var SOUND_TEST_MS = 60 * 1000;
   var CTX_REBUILD_MS = 1000;
   var CTX_RESUME_EVERY_MS = 500;
@@ -365,12 +406,12 @@
   var DEFAULTS = {
     color: 'orange',
     intensity: 100,
-    minutes: 5,
+    minutes: 8,
     soundEnabled: true,
     threshold: -50,
     minSoundSec: 0.4,
     listenFrom: 19 * 60,
-    listenTo: 7 * 60 + 30
+    listenTo: 7 * 60
   };
 
   // ---------- Čisté pomocné funkcie ----------
@@ -399,7 +440,7 @@
   }
 
   function calibrationThreshold(samples) {
-    return clamp(Math.round(median(samples) + 15), -70, -10);
+    return clamp(Math.round(median(samples) + 15), THR_MIN, THR_MAX);
   }
 
   function rmsToDb(rms) { return rms > 0 ? 20 * Math.log10(rms) : -Infinity; }
@@ -426,7 +467,7 @@
       intensity: num(o.intensity, DEFAULTS.intensity, 10, 100, 5),
       minutes: num(o.minutes, DEFAULTS.minutes, 1, 10, 1),
       soundEnabled: o.soundEnabled !== false,
-      threshold: num(o.threshold, DEFAULTS.threshold, -70, -10, 1),
+      threshold: num(o.threshold, DEFAULTS.threshold, THR_MIN, THR_MAX, 1),
       minSoundSec: num(o.minSoundSec, DEFAULTS.minSoundSec, 0.3, 3, 0.1),
       listenFrom: num(o.listenFrom, DEFAULTS.listenFrom, 0, 1439, 1),
       listenTo: num(o.listenTo, DEFAULTS.listenTo, 0, 1439, 1)
@@ -449,6 +490,11 @@
     if (parsed && typeof parsed === 'object') {
       if (!(parsed.v >= 4) && parsed.threshold === -40) parsed.threshold = -50;
       if (!(parsed.v >= 5) && parsed.threshold === -45) parsed.threshold = -50;
+      // v6: predvolené počúvanie do 07:00 (bolo 07:30) a svietenie 8 min (bolo 5).
+      if (!(parsed.v >= 6)) {
+        if (parsed.listenTo === 7 * 60 + 30) parsed.listenTo = 7 * 60;
+        if (parsed.minutes === 5) parsed.minutes = 8;
+      }
     }
     settings = sanitize(Object.assign({}, DEFAULTS, parsed || {}));
   }
@@ -593,6 +639,11 @@
     testUntil: 0, testTimer: null, // „Otestovať zvuk" – ignoruje okno aj stíšenie
     lastHitAt: 0,          // kedy naposledy zvuk spustil svetlo
     ctxDownMs: 0,
+    lastTickAt: 0,         // kedy naposledy prebehol zvukový tik (zamrznutý časovač = výpadok)
+    unhealthySince: 0,     // od kedy mikrofón nepočúva správne (0 = v poriadku)
+    backoff: 0, nextRestartAt: 0, restarts: 0, lastRestartAt: 0,
+    everRunning: false,    // mikrofón od načítania aspoň raz bežal
+    errPerm: false,        // chyba povolenia → automaticky neopakovať (biela výzva v noci)
     gen: 0                 // generácia spustenia mikrofónu – starší prísľub getUserMedia sa zahodí
   };
 
@@ -653,6 +704,7 @@
     snd.error = error || '';
     renderMicStatus();
     renderListenBtn();
+    renderMicWarn();
   }
 
   function releaseStream() {
@@ -682,7 +734,8 @@
 
   /**
    * Spustí mikrofón. Musí byť zavolané z obsluhy gesta (kvôli iOS). Vráti Promise<bool>.
-   * opts.firstTap: prvý ťuk po načítaní – hláška vysvetlí, že svetlo rozsvieti až ďalší ťuk.
+   * opts.auto: automatický štart/obnova bez gesta (pri načítaní, dozor). Ak iOS chce gesto → stav needsTap.
+   * opts.restoreTap: ťuk, ktorý len obnovil mikrofón – hláška vysvetlí, že svetlo rozsvieti až ďalší ťuk.
    */
   function startMic(opts) {
     opts = opts || {};
@@ -693,6 +746,7 @@
     var md = navigator.mediaDevices;
     if (!ctx || !md || typeof md.getUserMedia !== 'function') {
       var msg = micErrorText({ name: 'unavailable' });
+      snd.errPerm = true;
       setSndState('error', msg);
       toast(msg, 9000);
       return Promise.resolve(false);
@@ -724,12 +778,25 @@
       if (ctx.state !== 'running' && ctx.resume) { try { ctx.resume().then(onCtxResumed, noop); } catch (e) { /* nič */ } }
       clearInterval(snd.tick);
       snd.tick = setInterval(soundTick, TICK_MS);
+      snd.lastTickAt = now();
+      snd.errPerm = false; // unhealthySince nuluje až dozor, keď je mikrofón naozaj zdravý
+      var again = snd.everRunning;
+      snd.everRunning = true;
       setSndState('running');
-      if (opts.firstTap) toast('Počúvam · ďalší ťuk = svetlo', 3500);
+      if (opts.restoreTap) toast(again ? 'Mikrofón obnovený · ďalší ťuk = svetlo' : 'Počúvam · ďalší ťuk = svetlo', 3500);
+      else if (opts.auto && again) toast('Mikrofón obnovený', 2000);
       else toast('Počúvam', 2500);
       return true;
     }, function (err) {
       if (gen !== snd.gen) return false;
+      var name = err && err.name ? err.name : '';
+      var perm = name === 'NotAllowedError' || name === 'SecurityError' || name === 'PermissionDeniedError';
+      if (opts.auto && perm) {
+        // iOS nedovolil bez ťuknutia → počkať na gesto, automaticky neopakovať
+        setSndState('needsTap');
+        return false;
+      }
+      snd.errPerm = perm;
       var msg = micErrorText(err);
       setSndState('error', msg);
       toast(msg, 9000);
@@ -790,6 +857,7 @@
   function soundTick() {
     if (!snd.analyser) return;
     var t = now();
+    snd.lastTickAt = t;
     var ctx = snd.ctx;
     if (ctx && ctx.state !== 'running') {
       // Kontext stojí (prerušenie iOS): analyzér vracia starý buffer → nevyhodnocovať.
@@ -898,18 +966,69 @@
 
   function setCalibMsg(text) { snd.calibMsg = text; renderMicStatus(); }
 
+  /** Ťuk na plochu: ak mikrofón nepočúva, ťuk ho len obnoví (svetlo neprepne). */
   function soundOnGesture() {
     if (!settings.soundEnabled) return false;
-    ensureCtx();
-    if (!snd.attempted) {
-      // Prvý ťuk po načítaní len spustí mikrofón (iOS vyžaduje gesto), svetlo nerozsvieti.
-      startMic({ firstTap: true });
+    var t = now();
+    // Rozhodnúť podľa stavu v okamihu ťuku (ešte pred resume v geste).
+    // Trvalá chyba (zamietnuté / nedostupné): ťuk ostáva svetlom, obnova cez prepínač v rohu.
+    var restoreOnly = micNeedsAttention(t) && !(snd.state === 'error' && snd.errPerm);
+    var blip = (snd.state === 'running' || snd.state === 'interrupted') && !micHealthy(t);
+    ensureCtx(); // v geste → iOS dovolí spustiť AudioContext
+    if (restoreOnly) {
+      startMic({ restoreTap: true });
       return true;
     }
-    if (snd.state === 'interrupted' || snd.dead || (snd.state === 'running' && !trackLive())) {
-      startMic();
-    }
+    if (blip) startMic(); // krátky výpadok: obnoviť a svetlo normálne prepnúť
     return false;
+  }
+
+  // ---------- Dozor nad mikrofónom (otočenie, návrat do Safari, Asistovaný prístup…) ----------
+  function micHealthy(t) {
+    return snd.state === 'running' && !!snd.analyser && trackOk() &&
+      (!snd.ctx || snd.ctx.state === 'running') && !snd.dead &&
+      t - snd.lastTickAt < TICK_STALE_MS;
+  }
+
+  /** Mikrofón nepočúva už dlhšie (alebo čaká na ťuk) → výzva na ploche a ťuk ho len obnoví. */
+  function micNeedsAttention(t) {
+    if (!settings.soundEnabled || snd.state === 'starting') return false;
+    if (snd.state === 'waiting' || snd.state === 'needsTap' || snd.state === 'error') return true;
+    return !micHealthy(t) && snd.unhealthySince > 0 && t - snd.unhealthySince >= WARN_AFTER_MS;
+  }
+
+  function superviseMic(urgent) {
+    if (!settings.soundEnabled || document.visibilityState === 'hidden') return;
+    var t = now();
+    if (micHealthy(t)) {
+      if (snd.unhealthySince) { snd.unhealthySince = 0; snd.backoff = 0; renderMicWarn(); }
+      return;
+    }
+    if (!snd.unhealthySince) snd.unhealthySince = t;
+    renderMicWarn();
+    if (snd.state === 'starting' || snd.state === 'needsTap' || (snd.state === 'error' && snd.errPerm)) return;
+    if (!urgent && t - snd.unhealthySince < UNHEALTHY_GRACE_MS) return;
+    if (t < snd.nextRestartAt) return;
+    snd.restarts++;
+    snd.lastRestartAt = t;
+    snd.nextRestartAt = t + RESTART_BACKOFF_MS[Math.min(snd.backoff, RESTART_BACKOFF_MS.length - 1)];
+    snd.backoff++;
+    startMic({ auto: true });
+  }
+
+  var recheckTimer = null;
+  function scheduleMicCheck() {
+    clearTimeout(recheckTimer);
+    recheckTimer = setTimeout(function () { superviseMic(true); }, RECHECK_AFTER_EVENT_MS);
+  }
+
+  function renderMicWarn() {
+    if (!el.micWarn) return;
+    var on = micNeedsAttention(now());
+    if (on !== el.micWarn.classList.contains('show')) {
+      el.micWarn.classList.toggle('show', on);
+      if (on) el.hint.classList.remove('show');
+    }
   }
 
   registerTrigger({
@@ -934,9 +1053,17 @@
 
   function closePanel() {
     panel.open = false;
+    setAdvanced(false); // pri ďalšom otvorení zbalené
     el.panel.classList.remove('open');
     clearTimeout(panel.timer);
     snd.calibMsg = '';
+  }
+
+  function setAdvanced(open) {
+    if (!el.advanced) return;
+    el.advanced.hidden = !open;
+    el.advToggle.setAttribute('aria-expanded', String(open));
+    el.advToggle.textContent = open ? 'Rozšírené ▴' : 'Rozšírené ▾';
   }
 
   function touchPanel() {
@@ -1003,7 +1130,8 @@
       ' · ' + (c && c.sampleRate ? c.sampleRate : '?') + ' Hz' +
       ' · stopa: ' + (tr ? tr.readyState : 'žiadna') +
       ' · ' + (snd.analyser ? (snd.useFloat ? 'float' : 'byte') : 'bez analyzéra') +
-      ' · akum.: ' + snd.acc + '/' + need + ' ms';
+      ' · akum.: ' + snd.acc + '/' + need + ' ms' +
+      ' · obnovy: ' + snd.restarts + (snd.lastRestartAt ? ' (posledná ' + fmtClock(snd.lastRestartAt) + ')' : '');
   }
 
   function micStatusText() {
@@ -1011,6 +1139,7 @@
     switch (snd.state) {
       case 'off': return '';
       case 'waiting': return 'Mikrofón sa spustí po ťuknutí na obrazovku.';
+      case 'needsTap': return 'iOS mikrofón zastavil – ťukni na obrazovku a znova sa spustí.';
       case 'starting': return 'Spúšťam mikrofón…';
       case 'error': return snd.error;
       case 'interrupted': return 'Mikrofón je pozastavený – ťukni na obrazovku.';
@@ -1069,7 +1198,7 @@
       if (settings.soundEnabled) startMic(); // klik = gesto → AudioContext aj mikrofón smú štartovať
     });
     el.threshold.addEventListener('input', function () {
-      settings.threshold = num(el.threshold.value, DEFAULTS.threshold, -70, -10, 1); changed();
+      settings.threshold = num(el.threshold.value, DEFAULTS.threshold, THR_MIN, THR_MAX, 1); changed();
     });
     el.durDown.addEventListener('click', function () { settings.minSoundSec = num(settings.minSoundSec - 0.1, 1, 0.3, 3, 0.1); changed(); });
     el.durUp.addEventListener('click', function () { settings.minSoundSec = num(settings.minSoundSec + 0.1, 1, 0.3, 3, 0.1); changed(); });
@@ -1077,6 +1206,7 @@
     el.soundTest.addEventListener('click', startSoundTest);
     el.unmute.addEventListener('click', function () { mutedUntil = 0; renderPanel(); });
     bindListenBtn();
+    el.advToggle.addEventListener('click', function () { setAdvanced(el.advanced.hidden); });
     el.fromDown.addEventListener('click', function () { stepTime('listenFrom', -15); });
     el.fromUp.addEventListener('click', function () { stepTime('listenFrom', 15); });
     el.toDown.addEventListener('click', function () { stepTime('listenTo', -15); });
@@ -1087,7 +1217,7 @@
 
   // ---------- Prepínač počúvania na čiernej ploche ----------
   function micNeedsTap() {
-    return snd.state === 'waiting' || snd.state === 'interrupted' || snd.state === 'error' || snd.dead;
+    return snd.state === 'waiting' || snd.state === 'needsTap' || snd.state === 'interrupted' || snd.state === 'error' || snd.dead;
   }
 
   function listenLabel() {
@@ -1107,29 +1237,54 @@
     if (el.listenBtn.textContent !== s) el.listenBtn.textContent = s;
   }
 
-  /** Ťuk na prepínač: zruší stíšenie, obnoví mikrofón, alebo zapne/vypne počúvanie. */
+  /** Ťuk na prepínač: zapne počúvanie, obnoví mikrofón alebo zruší stíšenie. Nikdy nevypne. */
   function onListenBtn() {
-    if (snd.state === 'starting') return; // čaká sa na povolenie mikrofónu – druhý ťuk by zvuk vypol
-    if (settings.soundEnabled && now() < mutedUntil) {
+    if (snd.state === 'starting') return; // čaká sa na povolenie mikrofónu
+    ensureCtx();
+    if (!settings.soundEnabled) {
+      settings.soundEnabled = true;
+      changed();
+      startMic(); // v geste → iOS povolí AudioContext aj mikrofón
+    } else if (now() < mutedUntil) {
       mutedUntil = 0;
       toast('Stíšenie zrušené', 2000);
-    } else if (settings.soundEnabled && micNeedsTap()) {
+    } else if (!micHealthy(now())) {
       startMic();
     } else {
-      settings.soundEnabled = !settings.soundEnabled;
-      changed();
-      if (settings.soundEnabled) startMic(); // v geste → iOS povolí AudioContext aj mikrofón
-      else toast('Nepočúvam', 2000);
+      toast('Počúvam · vypnúť = podrž 1 s', 2500);
     }
     renderPanel();
   }
 
+  /** Podržanie prepínača 1 s: vypne počúvanie (ochrana pred náhodným vypnutím v noci). */
+  function onListenBtnHold() {
+    if (!settings.soundEnabled) return;
+    settings.soundEnabled = false;
+    changed();
+    toast('Nepočúvam', 2000);
+    renderPanel();
+  }
+
   function bindListenBtn() {
-    var b = el.listenBtn, opt = { passive: false };
-    b.addEventListener('touchstart', function (e) { e.preventDefault(); e.stopPropagation(); lastTouchAt = now(); }, opt);
-    b.addEventListener('touchend', function (e) { e.preventDefault(); e.stopPropagation(); lastTouchAt = now(); onListenBtn(); }, opt);
-    b.addEventListener('click', function (e) { e.stopPropagation(); if (now() - lastTouchAt < 1000) return; onListenBtn(); });
-    setInterval(renderListenBtn, 1000);
+    var b = el.listenBtn, opt = { passive: false }, press = null;
+    var down = function () {
+      if (press) clearTimeout(press.timer);
+      var cur = { held: false, timer: null };
+      cur.timer = setTimeout(function () { cur.held = true; onListenBtnHold(); }, HOLD_MS);
+      press = cur;
+    };
+    var up = function () {
+      if (!press) return;
+      var cur = press; press = null;
+      clearTimeout(cur.timer);
+      if (!cur.held) onListenBtn();
+    };
+    b.addEventListener('touchstart', function (e) { e.preventDefault(); e.stopPropagation(); lastTouchAt = now(); down(); }, opt);
+    b.addEventListener('touchend', function (e) { e.preventDefault(); e.stopPropagation(); lastTouchAt = now(); up(); }, opt);
+    b.addEventListener('touchcancel', function (e) { e.preventDefault(); if (press) { clearTimeout(press.timer); press = null; } }, opt);
+    b.addEventListener('mousedown', function (e) { e.stopPropagation(); if (now() - lastTouchAt < 1000) return; down(); });
+    b.addEventListener('mouseup', function (e) { e.stopPropagation(); if (now() - lastTouchAt < 1000) return; up(); });
+    setInterval(function () { renderListenBtn(); renderMicWarn(); }, 1000);
   }
 
   // ---------- Gestá na ploche ----------
@@ -1211,13 +1366,14 @@
     requestWakeLock();
     if (snd.state === 'running' && (!trackLive() || (snd.ctx && snd.ctx.state !== 'running'))) setSndState('interrupted');
     renderMicStatus();
+    scheduleMicCheck();
   }
 
   // ---------- Štart ----------
   function init() {
     ['stage', 'light', 'hint', 'toast', 'panel', 'colOrange', 'colRed', 'intensity', 'intensityVal',
       'minDown', 'minUp', 'minutesVal', 'soundToggle', 'soundToggleVal', 'micStatus', 'levelVal',
-      'meterFill', 'meterMark', 'accFill', 'soundHit', 'soundReason', 'unmute', 'diag', 'soundTest', 'countdown', 'clock', 'bigClock', 'soundDetails', 'soundOffNote', 'listenBtn', 'threshold', 'thresholdVal', 'durDown', 'durUp', 'durVal', 'calibrate',
+      'meterFill', 'meterMark', 'accFill', 'soundHit', 'soundReason', 'unmute', 'diag', 'soundTest', 'countdown', 'clock', 'bigClock', 'micWarn', 'advToggle', 'advanced', 'soundDetails', 'soundOffNote', 'listenBtn', 'threshold', 'thresholdVal', 'durDown', 'durUp', 'durVal', 'calibrate',
       'fromDown', 'fromUp', 'fromVal', 'toDown', 'toUp', 'toVal', 'lockInfo', 'testLight', 'closePanel'
     ].forEach(function (id) { el[id] = $(id); });
 
@@ -1234,10 +1390,17 @@
     renderClock();
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('pageshow', onVisibility);
+    ['focus', 'orientationchange', 'resize'].forEach(function (type) {
+      window.addEventListener(type, scheduleMicCheck);
+    });
+    setInterval(superviseMic, SUPERVISE_MS);
     requestWakeLock();
 
     el.hint.classList.add('show');
     setTimeout(function () { el.hint.classList.remove('show'); }, HINT_MS);
+
+    // Mikrofón skúsiť spustiť hneď; ak iOS chce ťuk, ukáže sa výzva.
+    if (settings.soundEnabled) startMic({ auto: true });
   }
 
   init();
@@ -1255,7 +1418,7 @@
       return {
         lightOn: light.on, lightSource: light.source, offAt: light.offAt,
         mutedUntil: mutedUntil, panelOpen: panel.open,
-        sound: { state: snd.state, error: snd.error, acc: snd.acc, level: snd.level, dead: snd.dead, attempted: snd.attempted, testUntil: snd.testUntil, lastHitAt: snd.lastHitAt, ctxState: snd.ctx ? snd.ctx.state : null },
+        sound: { state: snd.state, error: snd.error, acc: snd.acc, level: snd.level, dead: snd.dead, attempted: snd.attempted, restarts: snd.restarts, needsAttention: micNeedsAttention(now()), testUntil: snd.testUntil, lastHitAt: snd.lastHitAt, ctxState: snd.ctx ? snd.ctx.state : null },
         settings: Object.assign({}, settings)
       };
     }
