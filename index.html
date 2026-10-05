@@ -2,7 +2,7 @@
 <html lang="sk">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; worker-src 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -218,6 +218,7 @@
   #accFill { position: absolute; top: 0; bottom: 0; left: 0; width: 0; background: #5a2000; }
   #soundReason, #soundHit { color: var(--txt-hi); }
   #diag { font-size: 11px; opacity: .8; word-break: break-word; }
+  #log { font-size: 11px; white-space: pre-line; word-break: break-word; font-variant-numeric: tabular-nums; }
   #unmute { display: none; margin-top: 8px; }
   /* Dva stĺpce na šírku; na výšku jeden (bez flex gap – Safari 15). */
   .cols { display: flex; flex-wrap: wrap; margin: 0 -8px; }
@@ -363,7 +364,10 @@
         <p class="small" id="lockInfo">Aby displej nezhasol: Nastavenia → Displej a jas → Automatické zamknutie → Nikdy.</p>
         <p class="small">Bez bielej výzvy na mikrofón v noci: Nastavenia → Safari → Mikrofón → Povoliť.</p>
         <p class="small">Tmavý vzhľad (tmavé lišty Safari) a vypnutý Režim nízkej spotreby (ten zamyká displej po 30 s).</p>
+        <p class="small">Na beh bez dotyku: vypnúť Automatické aktualizácie iOS, stále zapnuté „Nerušiť", v Safari len táto karta.</p>
         <p class="small" id="diag"></p>
+        <div class="rh" style="margin-top: 10px">Denník mikrofónu</div>
+        <p class="small" id="log"></p>
       </section>
     </div>
   </div>
@@ -397,6 +401,18 @@
   var TICK_STALE_MS = 2000;              // zvukový tik zamrzol
   var RESTART_BACKOFF_MS = [2000, 5000, 15000, 30000, 60000];
   var RECHECK_AFTER_EVENT_MS = 700;      // po otočení / návrate / Asistovanom prístupe
+  var CT_STALL_MS = 1500;                // čas audia (currentTime) stojí → zásek
+  var FROZEN_MS = 2000;                  // analyzér vracia stále rovnaký buffer → zásek
+  var FLAT_MS = 3 * 60 * 1000;           // podozrivo plochý signál → preventívny štart
+  var FLAT_DB = 0.01;                    // „plochý" = kolíše menej ako toto (skutočná izba kolíše viac)
+  var FLAT_MIN_GAP_MS = 30 * 60 * 1000;  // plochý signál rieši najviac raz za 30 min
+  var BACKOFF_RESET_MS = 60 * 1000;      // odstupy nulovať až po minúte zdravého behu
+  var MAX_STEP_MS = 300;                 // akumulátor: max. príspevok jedného tiku
+  var TICK_GAP_LOG_MS = 10 * 1000;       // „stránka stála" do denníka
+  var REFRESH_EVERY_MS = 3 * 60 * 60 * 1000; // preventívny čerstvý štart počas okna
+  var LOG_KEY = 'nocne-svetlo-log';
+  var LOG_MAX = 50;
+  var LOG_SHOW = 10;
   var SOUND_TEST_MS = 60 * 1000;
   var CTX_REBUILD_MS = 1000;
   var CTX_RESUME_EVERY_MS = 500;
@@ -501,6 +517,46 @@
 
   function saveSettings() {
     try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.assign({ v: SETTINGS_VERSION }, settings))); } catch (e) { /* súkromný režim / plné úložisko */ }
+  }
+
+  // ---------- Denník (prežije znovunačítanie; nič sa neodosiela) ----------
+  var memLog = null; // záloha, keď localStorage nie je dostupné
+
+  function readLog() {
+    if (memLog) return memLog.slice();
+    try {
+      var v = JSON.parse(window.localStorage.getItem(LOG_KEY) || '[]');
+      return Array.isArray(v) ? v : [];
+    } catch (e) { memLog = []; return []; }
+  }
+
+  function logEvent(text) {
+    var list = readLog();
+    list.push([now(), text]);
+    if (list.length > LOG_MAX) list = list.slice(list.length - LOG_MAX);
+    if (memLog) memLog = list;
+    else {
+      try { window.localStorage.setItem(LOG_KEY, JSON.stringify(list)); } catch (e) { memLog = list; }
+    }
+    renderLog();
+  }
+
+  function fmtStamp(ts) {
+    var d = new Date(ts), dd = d.getDate(), mm = d.getMonth() + 1;
+    return (dd < 10 ? '0' : '') + dd + '.' + (mm < 10 ? '0' : '') + mm + '. ' + fmtClock(ts);
+  }
+
+  function fmtDuration(ms) {
+    var min = Math.round(ms / 60000);
+    return min >= 1 ? min + ' min' : Math.round(ms / 1000) + ' s';
+  }
+
+  function renderLog() {
+    if (!el.log || !panel.open) return;
+    var list = readLog().slice(-LOG_SHOW).reverse();
+    el.log.textContent = list.length
+      ? list.map(function (x) { return fmtStamp(x[0]) + '  ' + x[1]; }).join('\n')
+      : 'Denník je prázdny.';
   }
 
   // ---------- Hlásenia na ploche ----------
@@ -643,6 +699,12 @@
     unhealthySince: 0,     // od kedy mikrofón nepočúva správne (0 = v poriadku)
     backoff: 0, nextRestartAt: 0, restarts: 0, lastRestartAt: 0,
     everRunning: false,    // mikrofón od načítania aspoň raz bežal
+    pending: false,        // čaká sa na getUserMedia
+    healthySince: 0,
+    lastCt: null, ctStuckMs: 0, ctStalled: false,   // čas audia (currentTime)
+    lastSig: null, frozenMs: 0, frozen: false,      // podpis bufferu analyzéra
+    flatStart: 0, flatMin: 0, flatMax: 0, lastFlatFixAt: 0,
+    lastFreshAt: 0, wasInWindow: null,              // preventívny čerstvý štart
     errPerm: false,        // chyba povolenia → automaticky neopakovať (biela výzva v noci)
     gen: 0                 // generácia spustenia mikrofónu – starší prísľub getUserMedia sa zahodí
   };
@@ -707,12 +769,30 @@
     renderMicWarn();
   }
 
-  function releaseStream() {
-    if (snd.stream) {
-      try { snd.stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) { /* nič */ }
+  /** Zastaví stopy a odpojí zdroj, analyzér aj nulový zisk (inak by sa uzly v grafe hromadili). */
+  function releasePipeline(p) {
+    if (p.stream) {
+      try { p.stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) { /* nič */ }
     }
-    try { if (snd.src) snd.src.disconnect(); } catch (e) { /* nič */ }
+    [p.src, p.analyser, p.sink].forEach(function (n) {
+      try { if (n) n.disconnect(); } catch (e) { /* nič */ }
+    });
+  }
+
+  function currentPipeline() {
+    return { stream: snd.stream, src: snd.src, analyser: snd.analyser, sink: snd.sink };
+  }
+
+  function releaseStream() {
+    releasePipeline(currentPipeline());
     snd.stream = null; snd.src = null; snd.analyser = null; snd.sink = null;
+  }
+
+  /** Nový graf alebo kontext → kontroly živosti od začiatku. */
+  function resetLiveness() {
+    snd.lastCt = null; snd.ctStuckMs = 0; snd.ctStalled = false;
+    snd.lastSig = null; snd.frozenMs = 0; snd.frozen = false;
+    snd.flatStart = 0;
   }
 
   function cancelCalibration() {
@@ -725,6 +805,7 @@
 
   function stopMic() {
     snd.gen++;
+    snd.pending = false;
     clearInterval(snd.tick); snd.tick = null;
     releaseStream();
     cancelCalibration();
@@ -742,18 +823,25 @@
     snd.attempted = true;
     var gen = ++snd.gen;
     cancelCalibration();
+    if (opts.newCtx && snd.ctx) {
+      // čas audia stojí → starý kontext sa už nerozbehne
+      var oldCtx = snd.ctx;
+      snd.ctx = null;
+      try { if (oldCtx.close) oldCtx.close().then(noop, noop); } catch (e) { /* nič */ }
+    }
     var ctx = ensureCtx();
     var md = navigator.mediaDevices;
     if (!ctx || !md || typeof md.getUserMedia !== 'function') {
       var msg = micErrorText({ name: 'unavailable' });
       snd.errPerm = true;
+      logEvent('Mikrofón nie je dostupný');
       setSndState('error', msg);
       toast(msg, 9000);
       return Promise.resolve(false);
     }
-    clearInterval(snd.tick); snd.tick = null;
-    releaseStream();
-    setSndState('starting');
+    // Starý mikrofón beží ďalej, kým nový naozaj nebeží (pri preventívnom štarte bez výpadku).
+    snd.pending = true;
+    if (!opts.refresh) setSndState('starting');
     var p;
     try {
       p = md.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, video: false });
@@ -764,6 +852,8 @@
         try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) { /* nič */ }
         return false;
       }
+      snd.pending = false;
+      var old = currentPipeline();
       snd.stream = stream;
       var track = stream.getAudioTracks ? stream.getAudioTracks()[0] : null;
       if (track) {
@@ -773,8 +863,13 @@
           if (snd.stream === stream && snd.state === 'interrupted' && (!snd.ctx || snd.ctx.state === 'running')) setSndState('running');
         };
       }
+      if (!snd.ctx) ctx = ensureCtx(); // kontext medzitým prestavaný
+      ctx = snd.ctx || ctx;
       connectGraph(ctx, stream);
+      if (old.stream !== stream) releasePipeline(old);
+      resetLiveness();
       snd.acc = 0; snd.zeroMs = 0; snd.dead = false; snd.ctxDownMs = 0;
+      snd.lastFreshAt = now();
       if (ctx.state !== 'running' && ctx.resume) { try { ctx.resume().then(onCtxResumed, noop); } catch (e) { /* nič */ } }
       clearInterval(snd.tick);
       snd.tick = setInterval(soundTick, TICK_MS);
@@ -783,19 +878,31 @@
       var again = snd.everRunning;
       snd.everRunning = true;
       setSndState('running');
+      logEvent('Mikrofón beží' + (opts.reason ? ' (' + opts.reason + ')' : ''));
       if (opts.restoreTap) toast(again ? 'Mikrofón obnovený · ďalší ťuk = svetlo' : 'Počúvam · ďalší ťuk = svetlo', 3500);
+      else if (opts.refresh) { /* preventívny štart potichu */ }
       else if (opts.auto && again) toast('Mikrofón obnovený', 2000);
       else toast('Počúvam', 2500);
       return true;
     }, function (err) {
       if (gen !== snd.gen) return false;
+      snd.pending = false;
       var name = err && err.name ? err.name : '';
       var perm = name === 'NotAllowedError' || name === 'SecurityError' || name === 'PermissionDeniedError';
+      if (opts.refresh && snd.stream && trackLive()) {
+        // preventívny štart nevyšiel → ostáva doterajší mikrofón
+        logEvent('Čerstvý štart nevyšiel (' + (name || 'chyba') + '), beží doterajší mikrofón');
+        return false;
+      }
+      releaseStream();
+      clearInterval(snd.tick); snd.tick = null;
       if (opts.auto && perm) {
         // iOS nedovolil bez ťuknutia → počkať na gesto, automaticky neopakovať
+        logEvent('iOS chce ťuk na spustenie mikrofónu');
         setSndState('needsTap');
         return false;
       }
+      logEvent('Chyba mikrofónu: ' + (name || 'neznáma'));
       snd.errPerm = perm;
       var msg = micErrorText(err);
       setSndState('error', msg);
@@ -831,32 +938,41 @@
     if (!snd.stream || !trackLive()) return;
     var old = snd.ctx;
     snd.ctx = null;
-    try { if (snd.src) snd.src.disconnect(); } catch (e) { /* nič */ }
+    [snd.src, snd.analyser, snd.sink].forEach(function (n) {
+      try { if (n) n.disconnect(); } catch (e) { /* nič */ }
+    });
     try { if (old && old.close) old.close().then(noop, noop); } catch (e) { /* nič */ }
     var ctx = ensureCtx();
     if (!ctx) return;
     try { connectGraph(ctx, snd.stream); } catch (e) { return; }
+    resetLiveness();
+    logEvent('Nový AudioContext (' + (old ? old.state : '?') + ')');
     if (ctx.state === 'running' && snd.state === 'interrupted' && trackOk()) setSndState('running');
   }
 
   /** RMS aktuálneho okna v dBFS (−Infinity pri digitálnom tichu). */
   function readDb() {
-    var a = snd.analyser, i, sum = 0, n, v;
+    var a = snd.analyser, i, sum = 0, n, v, b;
     if (snd.useFloat) {
       a.getFloatTimeDomainData(snd.fbuf);
-      n = snd.fbuf.length;
-      for (i = 0; i < n; i++) { v = snd.fbuf[i]; sum += v * v; }
+      b = snd.fbuf; n = b.length;
+      for (i = 0; i < n; i++) { v = b[i]; sum += v * v; }
     } else {
       a.getByteTimeDomainData(snd.bbuf);
-      n = snd.bbuf.length;
-      for (i = 0; i < n; i++) { v = (snd.bbuf[i] - 128) / 128; sum += v * v; }
+      b = snd.bbuf; n = b.length;
+      for (i = 0; i < n; i++) { v = (b[i] - 128) / 128; sum += v * v; }
     }
+    // Podpis bufferu: skutočný mikrofón sa medzi tikmi vždy aspoň trochu zmení.
+    snd.sig = sum + ',' + b[0] + ',' + b[n >> 3] + ',' + b[n >> 1] + ',' + b[n - 1];
     return rmsToDb(Math.sqrt(sum / n));
   }
 
   function soundTick() {
     if (!snd.analyser) return;
     var t = now();
+    var dt = snd.lastTickAt ? t - snd.lastTickAt : TICK_MS;
+    if (dt >= TICK_GAP_LOG_MS) logEvent('Stránka stála ' + fmtDuration(dt));
+    var step = Math.max(0, Math.min(dt, MAX_STEP_MS));
     snd.lastTickAt = t;
     var ctx = snd.ctx;
     if (ctx && ctx.state !== 'running') {
@@ -875,7 +991,35 @@
       snd.ctxDownMs = 0;
       if (snd.state === 'interrupted' && trackOk()) setSndState('running');
     }
+
+    // Čas audia musí plynúť (inak WebKit „tichý zásek": stav running, ale graf stojí).
+    var wasDead = snd.ctStalled || snd.frozen;
+    var ct = ctx && typeof ctx.currentTime === 'number' ? ctx.currentTime : null;
+    if (ct !== null) {
+      if (ct === snd.lastCt) snd.ctStuckMs += step;
+      else { snd.ctStuckMs = 0; snd.lastCt = ct; }
+      snd.ctStalled = snd.ctStuckMs >= CT_STALL_MS;
+    }
+
     var db = readDb();
+
+    // Zamrznuté dáta: rovnaký buffer stále dookola (úplné nuly rieši watchdog nižšie).
+    if (db !== -Infinity && snd.sig === snd.lastSig) snd.frozenMs += step;
+    else snd.frozenMs = 0;
+    snd.lastSig = snd.sig;
+    snd.frozen = snd.frozenMs >= FROZEN_MS;
+    if ((snd.ctStalled || snd.frozen) !== wasDead) {
+      renderListenBtn(); renderMicStatus(); renderMicWarn();
+      if (!wasDead) scheduleMicCheck(); // zásek je už 1,5–2 s potvrdený → obnoviť hneď, bez čakania na dozor
+    }
+
+    if (snd.ctStalled || snd.frozen) {
+      // dáta nie sú živé → nevyhodnocovať, dozor mikrofón obnoví
+      snd.acc = 0;
+      if (panel.open) renderMeter();
+      checkOff();
+      return;
+    }
 
     // Watchdog: skutočný mikrofón nikdy nedáva presnú nulu.
     if (db === -Infinity) {
@@ -891,10 +1035,26 @@
       snd.calib.samples.push(snd.level);
       if (t >= snd.calib.endAt) finishCalibration();
     } else {
-      evaluateSound(snd.level, t);
+      evaluateSound(snd.level, t, step);
+      trackFlat(snd.level, t);
     }
     if (panel.open) renderMeter();
     checkOff();
+  }
+
+  /** Podozrivo plochý signál (skutočná izba vždy kolíše) → preventívny čerstvý štart. */
+  function trackFlat(level, t) {
+    var mn = Math.min(snd.flatMin, level), mx = Math.max(snd.flatMax, level);
+    if (!snd.flatStart || mx - mn > FLAT_DB) {
+      snd.flatStart = t; snd.flatMin = level; snd.flatMax = level;
+      return;
+    }
+    snd.flatMin = mn; snd.flatMax = mx;
+    if (t - snd.flatStart >= FLAT_MS && t - snd.lastFlatFixAt >= FLAT_MIN_GAP_MS) {
+      snd.lastFlatFixAt = t;
+      snd.flatStart = 0;
+      snd.flatDue = true;
+    }
   }
 
   function soundTesting(t) { return t < snd.testUntil; }
@@ -909,13 +1069,15 @@
     return '';
   }
 
-  function evaluateSound(db, t) {
+  /** step = skutočne uplynutý čas od minulého tiku (max 300 ms) – odolné voči spomaleným časovačom. */
+  function evaluateSound(db, t, step) {
     if (soundBlockReason(t)) {
       snd.acc = 0;
       return;
     }
-    if (db >= settings.threshold) snd.acc += ACC_UP_MS;
-    else snd.acc = Math.max(0, snd.acc - ACC_DOWN_MS);
+    var k = (step || TICK_MS) / TICK_MS;
+    if (db >= settings.threshold) snd.acc += Math.round(ACC_UP_MS * k);
+    else snd.acc = Math.max(0, snd.acc - Math.round(ACC_DOWN_MS * k));
     if (snd.acc >= Math.round(settings.minSoundSec * 1000)) {
       snd.acc = 0;
       var testing = soundTesting(t);
@@ -987,7 +1149,22 @@
   function micHealthy(t) {
     return snd.state === 'running' && !!snd.analyser && trackOk() &&
       (!snd.ctx || snd.ctx.state === 'running') && !snd.dead &&
+      !snd.ctStalled && !snd.frozen &&
       t - snd.lastTickAt < TICK_STALE_MS;
+  }
+
+  /** Prečo mikrofón nepočúva – do denníka. */
+  function unhealthyReason(t) {
+    var tr = currentTrack();
+    if (snd.state !== 'running') return 'stav ' + snd.state;
+    if (!tr || tr.readyState === 'ended') return 'stopa ukončená';
+    if (tr.muted) return 'stopa stlmená systémom';
+    if (snd.ctx && snd.ctx.state !== 'running') return 'AudioContext ' + snd.ctx.state;
+    if (snd.ctStalled) return 'čas audia stojí';
+    if (snd.frozen) return 'zamrznuté dáta';
+    if (snd.dead) return 'digitálne ticho';
+    if (t - snd.lastTickAt >= TICK_STALE_MS) return 'tik stojí';
+    return 'neznámy dôvod';
   }
 
   /** Mikrofón nepočúva už dlhšie (alebo čaká na ťuk) → výzva na ploche a ťuk ho len obnoví. */
@@ -1001,19 +1178,43 @@
     if (!settings.soundEnabled || document.visibilityState === 'hidden') return;
     var t = now();
     if (micHealthy(t)) {
-      if (snd.unhealthySince) { snd.unhealthySince = 0; snd.backoff = 0; renderMicWarn(); }
+      if (snd.unhealthySince) { snd.unhealthySince = 0; renderMicWarn(); }
+      if (!snd.healthySince) snd.healthySince = t;
+      if (snd.backoff && t - snd.healthySince >= BACKOFF_RESET_MS) snd.backoff = 0;
+      maybeRefresh(t);
       return;
     }
+    snd.healthySince = 0;
     if (!snd.unhealthySince) snd.unhealthySince = t;
     renderMicWarn();
-    if (snd.state === 'starting' || snd.state === 'needsTap' || (snd.state === 'error' && snd.errPerm)) return;
+    if (snd.pending || snd.state === 'starting' || snd.state === 'needsTap' || (snd.state === 'error' && snd.errPerm)) return;
     if (!urgent && t - snd.unhealthySince < UNHEALTHY_GRACE_MS) return;
     if (t < snd.nextRestartAt) return;
     snd.restarts++;
     snd.lastRestartAt = t;
     snd.nextRestartAt = t + RESTART_BACKOFF_MS[Math.min(snd.backoff, RESTART_BACKOFF_MS.length - 1)];
     snd.backoff++;
-    startMic({ auto: true });
+    var reason = unhealthyReason(t);
+    logEvent('Obnova mikrofónu: ' + reason);
+    startMic({ auto: true, newCtx: snd.ctStalled, reason: 'obnova – ' + reason });
+  }
+
+  /** Preventívny čerstvý štart: začiatok okna, každé 3 h počas okna, plochý signál – len keď je ticho. */
+  function maybeRefresh(t) {
+    var inWin = inWindow(minutesOfDay(t), settings.listenFrom, settings.listenTo);
+    var reason = '';
+    if (inWin && snd.wasInWindow === false) snd.windowStartDue = true;
+    snd.wasInWindow = inWin;
+    if (snd.windowStartDue) reason = 'začiatok okna';
+    else if (snd.flatDue) reason = 'plochý signál';
+    else if (inWin && t - snd.lastFreshAt >= REFRESH_EVERY_MS) reason = 'každé 3 h';
+    if (!reason || snd.pending) return;
+    var idle = !light.on && snd.acc === 0 && !snd.calib && !soundTesting(t);
+    if (!idle) return; // počká na ticho
+    snd.windowStartDue = false;
+    snd.flatDue = false;
+    logEvent('Čerstvý štart mikrofónu (' + reason + ')');
+    startMic({ auto: true, refresh: true, reason: reason });
   }
 
   var recheckTimer = null;
@@ -1096,6 +1297,7 @@
     renderMeter();
     renderMicStatus();
     renderListenBtn();
+    renderLog();
   }
 
   function dbToPct(db) { return Math.round((clamp(db, -80, 0) + 80) / 80 * 1000) / 10; }
@@ -1131,6 +1333,8 @@
       ' · stopa: ' + (tr ? tr.readyState : 'žiadna') +
       ' · ' + (snd.analyser ? (snd.useFloat ? 'float' : 'byte') : 'bez analyzéra') +
       ' · akum.: ' + snd.acc + '/' + need + ' ms' +
+      ' · dáta: ' + (snd.frozen ? 'zamrznuté' : 'živé') +
+      ' · čas audia: ' + (snd.ctStalled ? 'stojí' : 'beží') +
       ' · obnovy: ' + snd.restarts + (snd.lastRestartAt ? ' (posledná ' + fmtClock(snd.lastRestartAt) + ')' : '');
   }
 
@@ -1145,6 +1349,7 @@
       case 'interrupted': return 'Mikrofón je pozastavený – ťukni na obrazovku.';
       case 'running': {
         if (snd.dead) return 'Mikrofón nedáva signál – ťukni na obrazovku.';
+        if (snd.ctStalled || snd.frozen) return 'Dáta z mikrofónu stoja – obnovujem…';
         return soundTesting(t) ? 'Počúvam – beží test zvuku.' : 'Počúvam.';
       }
     }
@@ -1224,7 +1429,8 @@
     var t = now();
     if (!settings.soundEnabled) return '○ Nepočúvam';
     if (snd.state === 'starting') return 'Spúšťam mikrofón…';
-    if (micNeedsTap()) return 'Mikrofón – ťukni';
+    if (micNeedsAttention(t)) return 'Mikrofón – ťukni';
+    if (!micHealthy(t)) return 'Mikrofón – obnovujem…';
     if (soundTesting(t)) return '● Test zvuku';
     if (t < mutedUntil) return 'Stíšené · ' + Math.ceil((mutedUntil - t) / 60000) + ' min';
     if (!inWindow(minutesOfDay(t), settings.listenFrom, settings.listenTo)) return 'Mimo okna';
@@ -1359,8 +1565,12 @@
     } catch (e) { /* nič */ }
   }
 
-  function onVisibility() {
-    if (document.visibilityState !== 'visible') return;
+  function onVisibility(e) {
+    if (document.visibilityState !== 'visible') {
+      if (e && e.type === 'visibilitychange') logEvent('Stránka skrytá');
+      return;
+    }
+    if (e && e.type === 'visibilitychange') logEvent('Stránka znova viditeľná');
     checkOff();
     renderClock(); // časovače v pozadí stoja → hneď aktuálny čas
     requestWakeLock();
@@ -1373,7 +1583,7 @@
   function init() {
     ['stage', 'light', 'hint', 'toast', 'panel', 'colOrange', 'colRed', 'intensity', 'intensityVal',
       'minDown', 'minUp', 'minutesVal', 'soundToggle', 'soundToggleVal', 'micStatus', 'levelVal',
-      'meterFill', 'meterMark', 'accFill', 'soundHit', 'soundReason', 'unmute', 'diag', 'soundTest', 'countdown', 'clock', 'bigClock', 'micWarn', 'advToggle', 'advanced', 'soundDetails', 'soundOffNote', 'listenBtn', 'threshold', 'thresholdVal', 'durDown', 'durUp', 'durVal', 'calibrate',
+      'meterFill', 'meterMark', 'accFill', 'soundHit', 'soundReason', 'unmute', 'diag', 'soundTest', 'countdown', 'clock', 'bigClock', 'micWarn', 'advToggle', 'advanced', 'log', 'soundDetails', 'soundOffNote', 'listenBtn', 'threshold', 'thresholdVal', 'durDown', 'durUp', 'durVal', 'calibrate',
       'fromDown', 'fromUp', 'fromVal', 'toDown', 'toUp', 'toVal', 'lockInfo', 'testLight', 'closePanel'
     ].forEach(function (id) { el[id] = $(id); });
 
@@ -1399,8 +1609,27 @@
     el.hint.classList.add('show');
     setTimeout(function () { el.hint.classList.remove('show'); }, HINT_MS);
 
+    logEvent('Stránka načítaná (' + navigationType() + ')');
+    registerOfflineCopy();
+
     // Mikrofón skúsiť spustiť hneď; ak iOS chce ťuk, ukáže sa výzva.
-    if (settings.soundEnabled) startMic({ auto: true });
+    if (settings.soundEnabled) startMic({ auto: true, reason: 'pri načítaní' });
+  }
+
+  function navigationType() {
+    try {
+      var nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+      var type = nav ? nav.type : ['navigate', 'reload', 'back_forward'][performance.navigation.type];
+      return { navigate: 'otvorenie', reload: 'obnovenie / iOS kartu znova načítal', back_forward: 'návrat' }[type] || String(type);
+    } catch (e) { return '?'; }
+  }
+
+  /** Offline kópia stránky (sw.js): keď iOS kartu znova načíta bez Wi-Fi, appka sa aj tak otvorí. */
+  function registerOfflineCopy() {
+    if (!('serviceWorker' in navigator) || location.protocol !== 'https:') return;
+    try {
+      navigator.serviceWorker.register('sw.js').then(noop, function () { logEvent('Offline kópia sa nezaregistrovala'); });
+    } catch (e) { /* nič */ }
   }
 
   init();
@@ -1418,7 +1647,7 @@
       return {
         lightOn: light.on, lightSource: light.source, offAt: light.offAt,
         mutedUntil: mutedUntil, panelOpen: panel.open,
-        sound: { state: snd.state, error: snd.error, acc: snd.acc, level: snd.level, dead: snd.dead, attempted: snd.attempted, restarts: snd.restarts, needsAttention: micNeedsAttention(now()), testUntil: snd.testUntil, lastHitAt: snd.lastHitAt, ctxState: snd.ctx ? snd.ctx.state : null },
+        sound: { state: snd.state, error: snd.error, acc: snd.acc, level: snd.level, dead: snd.dead, attempted: snd.attempted, restarts: snd.restarts, needsAttention: micNeedsAttention(now()), frozen: snd.frozen, ctStalled: snd.ctStalled, healthy: micHealthy(now()), pending: snd.pending, testUntil: snd.testUntil, lastHitAt: snd.lastHitAt, ctxState: snd.ctx ? snd.ctx.state : null },
         settings: Object.assign({}, settings)
       };
     }
