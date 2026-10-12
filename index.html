@@ -1238,6 +1238,7 @@
 
   function superviseMic(urgent) {
     if (!settings.soundEnabled || document.visibilityState === 'hidden') return;
+    if (snd.state === 'paused') return; // počas digestora je mikrofón zámerne uvoľnený
     var t = now();
     if (micHealthy(t)) {
       if (snd.unhealthySince) { snd.unhealthySince = 0; renderMicWarn(); }
@@ -1409,6 +1410,7 @@
     switch (snd.state) {
       case 'off': return '';
       case 'waiting': return 'Mikrofón sa spustí po ťuknutí na obrazovku.';
+      case 'paused': return 'Mikrofón je počas digestora vypnutý (hlasnejší zvuk), potom sa sám zapne.';
       case 'needsTap': return 'iOS mikrofón zastavil – ťukni na obrazovku a znova sa spustí.';
       case 'starting': return 'Spúšťam mikrofón…';
       case 'error': return snd.error;
@@ -1567,6 +1569,7 @@
     hood.playing = true;
     hood.endsAt = now() + settings.hoodMinutes * 60000;
     snd.acc = 0;
+    pauseMicForHood(); // iOS prepne z „hovoru" do režimu médií → digestor hrá nahlas
     if (light.on && light.offAt < hood.endsAt) { light.offAt = hood.endsAt; armOffTimer(); renderCountdown(); }
     clearInterval(hood.timer);
     hood.timer = setInterval(hoodTick, 1000);
@@ -1616,9 +1619,34 @@
       try { if (src) src.stop(0); } catch (e) { /* nič */ }
       [src, f, g].forEach(function (n) { try { if (n) n.disconnect(); } catch (e) { /* nič */ } });
       if (!hood.playing && ctx && ctx.suspend) { try { ctx.suspend().then(noop, noop); } catch (e) { /* nič */ } }
+      if (!hood.playing) resumeMicAfterHood();
     }, fadeS * 1000 + 100);
     logEvent('Digestor zastavený' + (why ? ' (' + why + ')' : ''));
     renderHood();
+  }
+
+  /**
+   * Kým stránka nahráva z mikrofónu, iOS hrá v režime „hovoru" (tichšie). Počas digestora preto
+   * mikrofón uvoľníme (ako prepínač aplikácií) – zvuk sa aj tak nevyhodnocuje. AudioContext mikrofónu
+   * neuspávame: neskorší resume() bez ťuku by iOS nemusel dovoliť.
+   */
+  function pauseMicForHood() {
+    if (!settings.soundEnabled || snd.state === 'off' || snd.state === 'paused') return;
+    snd.gen++;               // prípadný rozbehnutý štart mikrofónu zahodiť
+    snd.pending = false;
+    clearInterval(snd.tick); snd.tick = null;
+    releaseStream();
+    cancelCalibration();
+    snd.acc = 0;
+    snd.unhealthySince = 0;
+    setSndState('paused');
+    logEvent('Mikrofón uvoľnený počas digestora');
+  }
+
+  function resumeMicAfterHood() {
+    if (snd.state !== 'paused') return;
+    if (!settings.soundEnabled) { setSndState('off'); return; }
+    startMic({ auto: true, reason: 'po digestore' });
   }
 
   function hoodCurrentGainAt(t) {
@@ -1670,6 +1698,7 @@
   function listenLabel() {
     var t = now();
     if (!settings.soundEnabled) return '○ Nepočúvam';
+    if (snd.state === 'paused') return '◐ Pauza – digestor';
     if (snd.state === 'starting') return 'Spúšťam mikrofón…';
     if (micNeedsAttention(t)) return 'Mikrofón – ťukni';
     if (!micHealthy(t)) return 'Mikrofón – obnovujem…';
@@ -1688,6 +1717,7 @@
   /** Ťuk na prepínač: zapne počúvanie, obnoví mikrofón alebo zruší stíšenie. Nikdy nevypne. */
   function onListenBtn() {
     if (snd.state === 'starting') return; // čaká sa na povolenie mikrofónu
+    if (snd.state === 'paused') { toast('Mikrofón sa zapne po digestore', 2500); return; }
     ensureCtx();
     if (!settings.soundEnabled) {
       settings.soundEnabled = true;
