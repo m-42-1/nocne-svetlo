@@ -1,28 +1,45 @@
-/* Nočné svetlo – offline kópia stránky.
-   Najprv sieť (nová verzia sa načíta hneď); ak sieť do 3 s neodpovie, použije sa uložená kópia.
-   Vďaka tomu sa stránka otvorí, aj keď ju iOS znova načíta v čase výpadku Wi-Fi. */
+/* Nočné svetlo – offline kópia stránky a zvuku digestora.
+   Stránka: najprv sieť (nová verzia sa načíta hneď); ak sieť do 3 s neodpovie, použije sa uložená kópia.
+   Zvuk digestora: z uloženej kópie (nemení sa), inak zo siete.
+   Vďaka tomu sa appka otvorí, aj keď ju iOS znova načíta v čase výpadku Wi-Fi. */
 'use strict';
-var CACHE = 'nocne-svetlo-v1';
+var CACHE = 'nocne-svetlo-v2';
 var PAGE = './';
+var SOUND = 'digestor.m4a';
 var TIMEOUT_MS = 3000;
 
 self.addEventListener('install', function (e) {
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then(function (c) { return c.add(PAGE); }).catch(function () {}));
+  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll([PAGE, SOUND]); }).catch(function () {}));
 });
 
 self.addEventListener('activate', function (e) {
-  e.waitUntil(self.clients.claim());
+  e.waitUntil(caches.keys().then(function (keys) {
+    return Promise.all(keys.filter(function (k) { return k !== CACHE; }).map(function (k) { return caches.delete(k); }));
+  }).then(function () { return self.clients.claim(); }));
 });
 
 self.addEventListener('fetch', function (e) {
   var req = e.request;
-  if (req.method !== 'GET' || req.mode !== 'navigate') return;
-  e.respondWith(fromNetwork(req).catch(function () {
-    return caches.open(CACHE)
-      .then(function (c) { return c.match(PAGE); })
-      .then(function (res) { return res || Response.error(); });
-  }));
+  if (req.method !== 'GET') return;
+  if (req.mode === 'navigate') {
+    e.respondWith(fromNetwork(req).catch(function () {
+      return caches.open(CACHE)
+        .then(function (c) { return c.match(PAGE); })
+        .then(function (res) { return res || Response.error(); });
+    }));
+    return;
+  }
+  if (/\/digestor\.m4a$/.test(new URL(req.url).pathname)) {
+    e.respondWith(caches.open(CACHE).then(function (c) {
+      return c.match(SOUND).then(function (hit) {
+        return hit || fetch(req).then(function (res) {
+          if (res && res.ok) c.put(SOUND, res.clone());
+          return res;
+        });
+      });
+    }));
+  }
 });
 
 function fromNetwork(req) {

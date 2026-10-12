@@ -2,7 +2,7 @@
 <html lang="sk">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; worker-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; worker-src 'self'; connect-src 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -232,6 +232,32 @@
     color: #6a2600; opacity: 0; transition: opacity 600ms ease;
   }
   #micWarn.show { opacity: 1; }
+  /* Tlačidlo digestora – len pri svetle; ≥ 20 % plochy (naležato vpravo, na výšku dole). */
+  #hoodBtn {
+    display: none; position: fixed; z-index: 5;
+    flex-direction: column; align-items: center; justify-content: center;
+    right: 4vw; top: 17vh; width: 32vw; height: 66vh;
+    min-height: 0; padding: 8px;
+    background: transparent; border: 3px solid currentColor; border-radius: 18px;
+    color: #000; opacity: .55;
+    font-size: 18px; letter-spacing: .12em; text-transform: uppercase;
+    transition: opacity 600ms ease;
+  }
+  body[data-light="on"] #hoodBtn.enabled { display: flex; }
+  #hoodBtn:active { background: #0000001a; }
+  #hoodBtn.dim { color: #b04400; opacity: .8; }
+  #hoodBtn.playing { background: #00000026; opacity: .75; }
+  #hoodBtn.dim.playing { background: #b0440026; opacity: .9; }
+  #hoodBtn svg { width: 38%; max-width: 96px; height: auto; fill: currentColor; margin-bottom: 8px; }
+  #hoodBtn.playing .fan { transform-origin: 24px 24px; animation: hoodspin .6s linear infinite; }
+  @keyframes hoodspin { to { transform: rotate(360deg); } }
+  .hood-sub { margin-top: 8px; font-size: 21px; letter-spacing: .04em; text-transform: none; font-variant-numeric: tabular-nums; }
+  /* naležato: hodiny a odpočet uhnú doľava */
+  body.hood-on[data-light="on"] #face { padding-right: 38vw; }
+  @media (orientation: portrait) {
+    #hoodBtn { left: 8vw; right: auto; top: auto; bottom: 64px; width: 84vw; height: 25vh; }
+    body.hood-on[data-light="on"] #face { padding-right: 8px; padding-bottom: calc(25vh + 64px); }
+  }
   @media (orientation: landscape) {
     .sec { padding: 10px 0 2px; }
     .row { margin-bottom: 10px; }
@@ -254,6 +280,10 @@
 
 <button type="button" id="listenBtn" aria-label="Počúvanie zvuku"></button>
 <div id="micWarn" role="status">Mikrofón nepočúva – ťukni</div>
+<button type="button" id="hoodBtn" aria-label="Digestor – upokojujúci zvuk">
+  <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="2.5"/><g class="fan"><circle cx="24" cy="24" r="3.5"/><path id="blade" d="M24 20.5C20.5 16 20.8 9 25 6.2C29 8.6 28.6 15.6 24 20.5Z"/><use href="#blade" transform="rotate(120 24 24)"/><use href="#blade" transform="rotate(240 24 24)"/></g></svg>
+  <span class="hood-sub" id="hoodSub"></span>
+</button>
 
 <div id="panel" role="dialog" aria-label="Nastavenia">
   <div class="phead">
@@ -313,6 +343,31 @@
             <output id="toVal"></output>
             <button type="button" id="toUp" aria-label="Do neskôr">+</button>
           </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="cols">
+    <section class="sec">
+      <h2>Digestor</h2>
+      <div class="row">
+        <button type="button" class="switch" id="hoodToggle" aria-pressed="true">
+          <span>Tlačidlo digestora pri svetle<br><small id="hoodToggleVal"></small></span><span class="knob"></span>
+        </button>
+      </div>
+      <div id="hoodDetails">
+        <div class="row">
+          <div class="rh">Hrá</div>
+          <div class="stepper">
+            <button type="button" id="hoodDown" aria-label="Menej">−</button>
+            <output id="hoodMinVal"></output>
+            <button type="button" id="hoodUp" aria-label="Viac">+</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="rh">Hlasitosť <b id="hoodVolVal"></b></div>
+          <input type="range" id="hoodVol" min="10" max="100" step="5" aria-label="Hlasitosť digestora">
         </div>
       </div>
     </section>
@@ -427,7 +482,10 @@
     threshold: -50,
     minSoundSec: 0.4,
     listenFrom: 19 * 60,
-    listenTo: 7 * 60
+    listenTo: 7 * 60,
+    hoodEnabled: true,
+    hoodMinutes: 1,
+    hoodVolume: 70
   };
 
   // ---------- Čisté pomocné funkcie ----------
@@ -486,7 +544,10 @@
       threshold: num(o.threshold, DEFAULTS.threshold, THR_MIN, THR_MAX, 1),
       minSoundSec: num(o.minSoundSec, DEFAULTS.minSoundSec, 0.3, 3, 0.1),
       listenFrom: num(o.listenFrom, DEFAULTS.listenFrom, 0, 1439, 1),
-      listenTo: num(o.listenTo, DEFAULTS.listenTo, 0, 1439, 1)
+      listenTo: num(o.listenTo, DEFAULTS.listenTo, 0, 1439, 1),
+      hoodEnabled: o.hoodEnabled !== false,
+      hoodMinutes: num(o.hoodMinutes, DEFAULTS.hoodMinutes, 1, 30, 1),
+      hoodVolume: num(o.hoodVolume, DEFAULTS.hoodVolume, 10, 100, 5)
     };
   }
 
@@ -602,8 +663,11 @@
     el.light.style.background = COLORS[settings.color];
     setLayer(settings.intensity / 100, fadeMs);
     scheduleOff();
+    if (hood.playing && light.offAt < hood.endsAt) light.offAt = hood.endsAt; // digestor dohrá
+    armOffTimer();
     renderCountdown();
     renderClock();
+    renderHood();
   }
 
   var countdownTimer = null;
@@ -649,6 +713,8 @@
     setLayer(0, FADE_OUT_MS);
     renderCountdown();
     renderClock();
+    if (hood.playing) hoodStop(HOOD_FADE_LIGHT_S, 'zhaslo svetlo'); // stíchne spolu so svetlom
+    renderHood();
     if (source === 'manual') {
       var wasListening = settings.soundEnabled && snd.state === 'running' && !soundBlockReason(now());
       mutedUntil = now() + MANUAL_MUTE_MS;
@@ -1061,6 +1127,8 @@
 
   /** Prečo by zvuk teraz nerozsvietil ('' = nič nebráni). */
   function soundBlockReason(t) {
+    // Mikrofón by počul digestor (bez potlačenia ozveny) → počas hrania a chvíľu po ňom nevyhodnocovať.
+    if (hood.playing || t < hood.quietUntil) return 'Hrá digestor – zvuk sa teraz nevyhodnocuje.';
     if (soundTesting(t)) return '';
     if (!inWindow(minutesOfDay(t), settings.listenFrom, settings.listenTo)) {
       return 'Mimo časového okna (' + fmtTime(settings.listenFrom) + '–' + fmtTime(settings.listenTo) + ') – zvuk sa teraz ignoruje. Na skúšku použi „Otestovať zvuk".';
@@ -1209,7 +1277,7 @@
     else if (snd.flatDue) reason = 'plochý signál';
     else if (inWin && t - snd.lastFreshAt >= REFRESH_EVERY_MS) reason = 'každé 3 h';
     if (!reason || snd.pending) return;
-    var idle = !light.on && snd.acc === 0 && !snd.calib && !soundTesting(t);
+    var idle = !light.on && snd.acc === 0 && !snd.calib && !soundTesting(t) && !hood.playing && t >= hood.quietUntil;
     if (!idle) return; // počká na ticho
     snd.windowStartDue = false;
     snd.flatDue = false;
@@ -1287,6 +1355,12 @@
     el.minutesVal.textContent = settings.minutes + ' min';
     el.soundToggle.setAttribute('aria-pressed', String(settings.soundEnabled));
     el.soundToggleVal.textContent = settings.soundEnabled ? 'zapnuté' : 'vypnuté';
+    el.hoodToggle.setAttribute('aria-pressed', String(settings.hoodEnabled));
+    el.hoodToggleVal.textContent = settings.hoodEnabled ? 'zapnuté' : 'vypnuté';
+    el.hoodDetails.style.display = settings.hoodEnabled ? '' : 'none';
+    el.hoodMinVal.textContent = settings.hoodMinutes + ' min';
+    el.hoodVol.value = String(settings.hoodVolume);
+    el.hoodVolVal.textContent = settings.hoodVolume + ' %';
     el.soundDetails.style.display = settings.soundEnabled ? '' : 'none';
     el.soundOffNote.style.display = settings.soundEnabled ? 'none' : '';
     el.threshold.value = String(settings.threshold);
@@ -1370,8 +1444,11 @@
       el.light.style.background = COLORS[settings.color];
       setLayer(settings.intensity / 100, 300);
     }
+    if (hood.playing && !settings.hoodEnabled) hoodStop(HOOD_FADE_END_S, 'vypnutý v nastaveniach');
+    if (hood.playing) hoodSetVolume();
     renderCountdown();
     renderClock();
+    renderHood();
     renderPanel();
   }
 
@@ -1411,6 +1488,7 @@
     el.soundTest.addEventListener('click', startSoundTest);
     el.unmute.addEventListener('click', function () { mutedUntil = 0; renderPanel(); });
     bindListenBtn();
+    bindHood();
     el.advToggle.addEventListener('click', function () { setAdvanced(el.advanced.hidden); });
     el.fromDown.addEventListener('click', function () { stepTime('listenFrom', -15); });
     el.fromUp.addEventListener('click', function () { stepTime('listenFrom', 15); });
@@ -1418,6 +1496,190 @@
     el.toUp.addEventListener('click', function () { stepTime('listenTo', 15); });
     el.testLight.addEventListener('click', function () { closePanel(); requestLight('manual'); });
     el.closePanel.addEventListener('click', closePanel);
+  }
+
+  // ---------- Digestor: upokojujúci zvuk na rozsvietenej obrazovke ----------
+  var HOOD_FILE = 'digestor.m4a';
+  var HOOD_FADE_IN_S = 2;        // nábeh
+  var HOOD_FADE_END_S = 6;       // stíchnutie po uplynutí času / ručne
+  var HOOD_FADE_LIGHT_S = 4;     // stíchnutie so zhasnutím svetla (ako svetlo)
+  var HOOD_MIC_PAUSE_MS = 3000;  // mikrofón ešte chvíľu po dohraní nevyhodnocuje
+  var HOOD_TRIM_S = 0.05;        // okraje dekódovaného zvuku (medzery kodéra)
+  var HOOD_XFADE_S = 1;          // prelínanie konca so začiatkom → opakovanie bez cvaknutia
+
+  var hood = {
+    ctx: null, load: null, buffer: null, synth: false,
+    src: null, filter: null, gain: null, startCt: 0, vol: 0,
+    playing: false, endsAt: 0, quietUntil: 0, timer: null
+  };
+
+  /** Súbor sa načíta hneď pri štarte (zo siete alebo z offline kópie), dekóduje sa až pri ťuku. */
+  function hoodPreload() {
+    if (typeof window.fetch !== 'function') return;
+    try {
+      hood.load = fetch(HOOD_FILE).then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.arrayBuffer();
+      });
+      hood.load.then(noop, noop);
+    } catch (e) { hood.load = null; }
+  }
+
+  /** Z dekódovaného zvuku urobí slučku: orezané okraje a 1 s prelínanie konca so začiatkom. */
+  function hoodLoopBuffer(ctx, b) {
+    var sr = b.sampleRate, inp = b.getChannelData(0);
+    var trim = Math.round(HOOD_TRIM_S * sr), x = Math.round(HOOD_XFADE_S * sr);
+    var n = inp.length - 2 * trim, m = n - x;
+    if (m <= x) return b;
+    var out = ctx.createBuffer(1, m, sr), o = out.getChannelData(0), i, k;
+    for (i = 0; i < m; i++) o[i] = inp[trim + i];
+    for (i = 0; i < x; i++) {
+      k = (i / x) * Math.PI / 2; // rovnaký výkon počas prelínania
+      o[i] = inp[trim + i] * Math.sin(k) + inp[trim + m + i] * Math.cos(k);
+    }
+    return out;
+  }
+
+  /** Záloha, keď sa súbor nedá načítať: šum, ktorý sa pri hraní prefiltruje na hlboké „hučanie". */
+  function hoodSynthBuffer(ctx) {
+    var sr = ctx.sampleRate || 44100, len = sr * 4;
+    var b = ctx.createBuffer(1, len, sr), d = b.getChannelData(0);
+    for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * 0.5;
+    hood.synth = true;
+    return b;
+  }
+
+  function hoodBuffer(cb) {
+    var ctx = hood.ctx;
+    if (hood.buffer) { cb(hood.buffer); return; }
+    var fallback = function () { hood.buffer = hoodSynthBuffer(ctx); cb(hood.buffer); };
+    if (!hood.load || typeof ctx.decodeAudioData !== 'function') { fallback(); return; }
+    hood.load.then(function (data) {
+      try {
+        ctx.decodeAudioData(data.slice(0), function (b) {
+          hood.buffer = hoodLoopBuffer(ctx, b);
+          cb(hood.buffer);
+        }, function () { logEvent('Zvuk digestora sa nedal dekódovať – hrá náhradný šum'); fallback(); });
+      } catch (e) { fallback(); }
+    }, function () { logEvent('Zvuk digestora sa nenačítal – hrá náhradný šum'); fallback(); });
+  }
+
+  /** Spustenie – volať v geste ťuku (iOS vtedy dovolí rozbehnúť AudioContext). */
+  function hoodStart() {
+    var AC = audioCtxCtor();
+    if (!AC) return;
+    if (!hood.ctx) {
+      try { hood.ctx = new AC(); } catch (e) { return; }
+    }
+    try { var p = hood.ctx.resume(); if (p && p.then) p.then(noop, noop); } catch (e) { /* nič */ }
+    hood.playing = true;
+    hood.endsAt = now() + settings.hoodMinutes * 60000;
+    snd.acc = 0;
+    if (light.on && light.offAt < hood.endsAt) { light.offAt = hood.endsAt; armOffTimer(); renderCountdown(); }
+    clearInterval(hood.timer);
+    hood.timer = setInterval(hoodTick, 1000);
+    logEvent('Digestor spustený (' + settings.hoodMinutes + ' min)');
+    hoodBuffer(function (buf) { if (hood.playing && !hood.src) hoodPlay(buf); });
+    renderHood();
+  }
+
+  function hoodPlay(buf) {
+    var ctx = hood.ctx, t = ctx.currentTime || 0;
+    var src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    var g = ctx.createGain();
+    hood.vol = settings.hoodVolume / 100;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(hood.vol, t + HOOD_FADE_IN_S);
+    var out = src, f = null;
+    if (hood.synth && typeof ctx.createBiquadFilter === 'function') {
+      f = ctx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = 900;
+      src.connect(f);
+      out = f;
+    }
+    out.connect(g);
+    g.connect(ctx.destination);
+    src.start(0);
+    hood.src = src; hood.filter = f; hood.gain = g; hood.startCt = t;
+  }
+
+  function hoodSetVolume() {
+    if (!hood.gain) return;
+    var t = hood.ctx.currentTime || 0;
+    hood.vol = settings.hoodVolume / 100;
+    hood.startCt = t - HOOD_FADE_IN_S; // nábeh už prebehol
+    hood.gain.gain.cancelScheduledValues(t);
+    hood.gain.gain.setValueAtTime(hood.vol, t);
+  }
+
+  /** Plynulé stíchnutie a zastavenie. */
+  function hoodStop(fadeS, why) {
+    if (!hood.playing) return;
+    hood.playing = false;
+    clearInterval(hood.timer); hood.timer = null;
+    hood.quietUntil = now() + fadeS * 1000 + HOOD_MIC_PAUSE_MS;
+    var src = hood.src, f = hood.filter, g = hood.gain, ctx = hood.ctx;
+    hood.src = null; hood.filter = null; hood.gain = null;
+    if (g && ctx) {
+      var t = ctx.currentTime || 0;
+      g.gain.cancelScheduledValues(t);
+      g.gain.setValueAtTime(hoodCurrentGainAt(t), t);
+      g.gain.linearRampToValueAtTime(0, t + fadeS);
+    }
+    setTimeout(function () {
+      try { if (src) src.stop(0); } catch (e) { /* nič */ }
+      [src, f, g].forEach(function (n) { try { if (n) n.disconnect(); } catch (e) { /* nič */ } });
+      if (!hood.playing && ctx && ctx.suspend) { try { ctx.suspend().then(noop, noop); } catch (e) { /* nič */ } }
+    }, fadeS * 1000 + 100);
+    logEvent('Digestor zastavený' + (why ? ' (' + why + ')' : ''));
+    renderHood();
+  }
+
+  function hoodCurrentGainAt(t) {
+    return hood.vol * Math.max(0, Math.min(1, (t - hood.startCt) / HOOD_FADE_IN_S));
+  }
+
+  function hoodTick() {
+    if (!hood.playing) return;
+    if (now() >= hood.endsAt) hoodStop(HOOD_FADE_END_S, 'uplynul čas');
+    renderHood();
+  }
+
+  function renderHood() {
+    if (!el.hoodBtn) return;
+    var b = el.hoodBtn;
+    b.className = (settings.hoodEnabled ? 'enabled' : '') + (lowLight() ? ' dim' : '') + (hood.playing ? ' playing' : '');
+    document.body.classList.toggle('hood-on', settings.hoodEnabled);
+    var txt;
+    if (hood.playing) {
+      var left = Math.max(0, Math.ceil((hood.endsAt - now()) / 1000));
+      txt = Math.floor(left / 60) + ':' + (left % 60 < 10 ? '0' : '') + (left % 60) + ' · ťuk = stop';
+    } else {
+      txt = settings.hoodMinutes + ' min';
+    }
+    if (el.hoodSub.textContent !== txt) el.hoodSub.textContent = txt;
+  }
+
+  function onHoodBtn() {
+    if (hood.playing) hoodStop(HOOD_FADE_END_S, 'ťuk');
+    else if (settings.hoodEnabled && light.on) hoodStart();
+  }
+
+  function bindHood() {
+    var b = el.hoodBtn, opt = { passive: false };
+    b.addEventListener('touchstart', function (e) { e.preventDefault(); e.stopPropagation(); lastTouchAt = now(); }, opt);
+    b.addEventListener('touchend', function (e) { e.preventDefault(); e.stopPropagation(); lastTouchAt = now(); onHoodBtn(); }, opt);
+    b.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+    b.addEventListener('click', function (e) { e.stopPropagation(); if (now() - lastTouchAt < 1000) return; onHoodBtn(); });
+    el.hoodToggle.addEventListener('click', function () { settings.hoodEnabled = !settings.hoodEnabled; changed(); });
+    el.hoodDown.addEventListener('click', function () { settings.hoodMinutes = clamp(settings.hoodMinutes - 1, 1, 30); changed(); });
+    el.hoodUp.addEventListener('click', function () { settings.hoodMinutes = clamp(settings.hoodMinutes + 1, 1, 30); changed(); });
+    el.hoodVol.addEventListener('input', function () {
+      settings.hoodVolume = num(el.hoodVol.value, DEFAULTS.hoodVolume, 10, 100, 5); changed();
+    });
   }
 
   // ---------- Prepínač počúvania na čiernej ploche ----------
@@ -1583,7 +1845,7 @@
   function init() {
     ['stage', 'light', 'hint', 'toast', 'panel', 'colOrange', 'colRed', 'intensity', 'intensityVal',
       'minDown', 'minUp', 'minutesVal', 'soundToggle', 'soundToggleVal', 'micStatus', 'levelVal',
-      'meterFill', 'meterMark', 'accFill', 'soundHit', 'soundReason', 'unmute', 'diag', 'soundTest', 'countdown', 'clock', 'bigClock', 'micWarn', 'advToggle', 'advanced', 'log', 'soundDetails', 'soundOffNote', 'listenBtn', 'threshold', 'thresholdVal', 'durDown', 'durUp', 'durVal', 'calibrate',
+      'meterFill', 'meterMark', 'accFill', 'soundHit', 'soundReason', 'unmute', 'diag', 'soundTest', 'countdown', 'clock', 'bigClock', 'micWarn', 'advToggle', 'advanced', 'log', 'hoodBtn', 'hoodSub', 'hoodToggle', 'hoodToggleVal', 'hoodDetails', 'hoodDown', 'hoodUp', 'hoodMinVal', 'hoodVol', 'hoodVolVal', 'soundDetails', 'soundOffNote', 'listenBtn', 'threshold', 'thresholdVal', 'durDown', 'durUp', 'durVal', 'calibrate',
       'fromDown', 'fromUp', 'fromVal', 'toDown', 'toUp', 'toVal', 'lockInfo', 'testLight', 'closePanel'
     ].forEach(function (id) { el[id] = $(id); });
 
@@ -1611,6 +1873,8 @@
 
     logEvent('Stránka načítaná (' + navigationType() + ')');
     registerOfflineCopy();
+    hoodPreload();
+    renderHood();
 
     // Mikrofón skúsiť spustiť hneď; ak iOS chce ťuk, ukáže sa výzva.
     if (settings.soundEnabled) startMic({ auto: true, reason: 'pri načítaní' });
@@ -1648,6 +1912,7 @@
         lightOn: light.on, lightSource: light.source, offAt: light.offAt,
         mutedUntil: mutedUntil, panelOpen: panel.open,
         sound: { state: snd.state, error: snd.error, acc: snd.acc, level: snd.level, dead: snd.dead, attempted: snd.attempted, restarts: snd.restarts, needsAttention: micNeedsAttention(now()), frozen: snd.frozen, ctStalled: snd.ctStalled, healthy: micHealthy(now()), pending: snd.pending, testUntil: snd.testUntil, lastHitAt: snd.lastHitAt, ctxState: snd.ctx ? snd.ctx.state : null },
+        hood: { playing: hood.playing, synth: hood.synth, endsAt: hood.endsAt, quietUntil: hood.quietUntil },
         settings: Object.assign({}, settings)
       };
     }
