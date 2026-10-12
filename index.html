@@ -434,7 +434,7 @@
 
   // ---------- Konštanty ----------
   var STORAGE_KEY = 'nocne-svetlo-v1';
-  var SETTINGS_VERSION = 6;
+  var SETTINGS_VERSION = 7;
   var COLORS = { orange: '#FF5A00', red: '#FF1000' };
   var FADE_IN_MS = 1200;
   var FADE_IN_SOUND_MS = 2500;
@@ -485,7 +485,7 @@
     listenTo: 7 * 60,
     hoodEnabled: true,
     hoodMinutes: 1,
-    hoodVolume: 70
+    hoodVolume: 100
   };
 
   // ---------- Čisté pomocné funkcie ----------
@@ -572,6 +572,8 @@
         if (parsed.listenTo === 7 * 60 + 30) parsed.listenTo = 7 * 60;
         if (parsed.minutes === 5) parsed.minutes = 8;
       }
+      // v7: predvolená hlasitosť digestora 100 % (bola 70 %).
+      if (!(parsed.v >= 7) && parsed.hoodVolume === 70) parsed.hoodVolume = 100;
     }
     settings = sanitize(Object.assign({}, DEFAULTS, parsed || {}));
   }
