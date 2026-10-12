@@ -3,14 +3,17 @@
    Zvuk digestora: z uloženej kópie (nemení sa), inak zo siete.
    Vďaka tomu sa appka otvorí, aj keď ju iOS znova načíta v čase výpadku Wi-Fi. */
 'use strict';
-var CACHE = 'nocne-svetlo-v2';
+var CACHE = 'nocne-svetlo-v3'; // zvýšiť pri každej zmene digestor.m4a
 var PAGE = './';
 var SOUND = 'digestor.m4a';
 var TIMEOUT_MS = 3000;
 
 self.addEventListener('install', function (e) {
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll([PAGE, SOUND]); }).catch(function () {}));
+  // cache: 'reload' → čerstvé súbory zo servera, nie zo zastaranej HTTP cache prehliadača
+  e.waitUntil(caches.open(CACHE).then(function (c) {
+    return c.addAll([PAGE, SOUND].map(function (u) { return new Request(u, { cache: 'reload' }); }));
+  }).catch(function () {}));
 });
 
 self.addEventListener('activate', function (e) {

@@ -365,10 +365,6 @@
             <button type="button" id="hoodUp" aria-label="Viac">+</button>
           </div>
         </div>
-        <div class="row">
-          <div class="rh">Hlasitosť <b id="hoodVolVal"></b></div>
-          <input type="range" id="hoodVol" min="10" max="100" step="5" aria-label="Hlasitosť digestora">
-        </div>
       </div>
     </section>
   </div>
@@ -484,8 +480,7 @@
     listenFrom: 19 * 60,
     listenTo: 7 * 60,
     hoodEnabled: true,
-    hoodMinutes: 1,
-    hoodVolume: 100
+    hoodMinutes: 1
   };
 
   // ---------- Čisté pomocné funkcie ----------
@@ -546,8 +541,7 @@
       listenFrom: num(o.listenFrom, DEFAULTS.listenFrom, 0, 1439, 1),
       listenTo: num(o.listenTo, DEFAULTS.listenTo, 0, 1439, 1),
       hoodEnabled: o.hoodEnabled !== false,
-      hoodMinutes: num(o.hoodMinutes, DEFAULTS.hoodMinutes, 1, 30, 1),
-      hoodVolume: num(o.hoodVolume, DEFAULTS.hoodVolume, 10, 100, 5)
+      hoodMinutes: num(o.hoodMinutes, DEFAULTS.hoodMinutes, 1, 30, 1)
     };
   }
 
@@ -572,8 +566,6 @@
         if (parsed.listenTo === 7 * 60 + 30) parsed.listenTo = 7 * 60;
         if (parsed.minutes === 5) parsed.minutes = 8;
       }
-      // v7: predvolená hlasitosť digestora 100 % (bola 70 %).
-      if (!(parsed.v >= 7) && parsed.hoodVolume === 70) parsed.hoodVolume = 100;
     }
     settings = sanitize(Object.assign({}, DEFAULTS, parsed || {}));
   }
@@ -1361,8 +1353,6 @@
     el.hoodToggleVal.textContent = settings.hoodEnabled ? 'zapnuté' : 'vypnuté';
     el.hoodDetails.style.display = settings.hoodEnabled ? '' : 'none';
     el.hoodMinVal.textContent = settings.hoodMinutes + ' min';
-    el.hoodVol.value = String(settings.hoodVolume);
-    el.hoodVolVal.textContent = settings.hoodVolume + ' %';
     el.soundDetails.style.display = settings.soundEnabled ? '' : 'none';
     el.soundOffNote.style.display = settings.soundEnabled ? 'none' : '';
     el.threshold.value = String(settings.threshold);
@@ -1447,7 +1437,6 @@
       setLayer(settings.intensity / 100, 300);
     }
     if (hood.playing && !settings.hoodEnabled) hoodStop(HOOD_FADE_END_S, 'vypnutý v nastaveniach');
-    if (hood.playing) hoodSetVolume();
     renderCountdown();
     renderClock();
     renderHood();
@@ -1508,6 +1497,7 @@
   var HOOD_MIC_PAUSE_MS = 3000;  // mikrofón ešte chvíľu po dohraní nevyhodnocuje
   var HOOD_TRIM_S = 0.05;        // okraje dekódovaného zvuku (medzery kodéra)
   var HOOD_XFADE_S = 1;          // prelínanie konca so začiatkom → opakovanie bez cvaknutia
+  var HOOD_GAIN = 1;             // plná hlasitosť (súbor je už maximalizovaný)
 
   var hood = {
     ctx: null, load: null, buffer: null, synth: false,
@@ -1591,7 +1581,7 @@
     src.buffer = buf;
     src.loop = true;
     var g = ctx.createGain();
-    hood.vol = settings.hoodVolume / 100;
+    hood.vol = HOOD_GAIN; // hlasitosť sa nastavuje tlačidlami telefónu
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(hood.vol, t + HOOD_FADE_IN_S);
     var out = src, f = null;
@@ -1606,15 +1596,6 @@
     g.connect(ctx.destination);
     src.start(0);
     hood.src = src; hood.filter = f; hood.gain = g; hood.startCt = t;
-  }
-
-  function hoodSetVolume() {
-    if (!hood.gain) return;
-    var t = hood.ctx.currentTime || 0;
-    hood.vol = settings.hoodVolume / 100;
-    hood.startCt = t - HOOD_FADE_IN_S; // nábeh už prebehol
-    hood.gain.gain.cancelScheduledValues(t);
-    hood.gain.gain.setValueAtTime(hood.vol, t);
   }
 
   /** Plynulé stíchnutie a zastavenie. */
@@ -1679,9 +1660,6 @@
     el.hoodToggle.addEventListener('click', function () { settings.hoodEnabled = !settings.hoodEnabled; changed(); });
     el.hoodDown.addEventListener('click', function () { settings.hoodMinutes = clamp(settings.hoodMinutes - 1, 1, 30); changed(); });
     el.hoodUp.addEventListener('click', function () { settings.hoodMinutes = clamp(settings.hoodMinutes + 1, 1, 30); changed(); });
-    el.hoodVol.addEventListener('input', function () {
-      settings.hoodVolume = num(el.hoodVol.value, DEFAULTS.hoodVolume, 10, 100, 5); changed();
-    });
   }
 
   // ---------- Prepínač počúvania na čiernej ploche ----------
@@ -1847,7 +1825,7 @@
   function init() {
     ['stage', 'light', 'hint', 'toast', 'panel', 'colOrange', 'colRed', 'intensity', 'intensityVal',
       'minDown', 'minUp', 'minutesVal', 'soundToggle', 'soundToggleVal', 'micStatus', 'levelVal',
-      'meterFill', 'meterMark', 'accFill', 'soundHit', 'soundReason', 'unmute', 'diag', 'soundTest', 'countdown', 'clock', 'bigClock', 'micWarn', 'advToggle', 'advanced', 'log', 'hoodBtn', 'hoodSub', 'hoodToggle', 'hoodToggleVal', 'hoodDetails', 'hoodDown', 'hoodUp', 'hoodMinVal', 'hoodVol', 'hoodVolVal', 'soundDetails', 'soundOffNote', 'listenBtn', 'threshold', 'thresholdVal', 'durDown', 'durUp', 'durVal', 'calibrate',
+      'meterFill', 'meterMark', 'accFill', 'soundHit', 'soundReason', 'unmute', 'diag', 'soundTest', 'countdown', 'clock', 'bigClock', 'micWarn', 'advToggle', 'advanced', 'log', 'hoodBtn', 'hoodSub', 'hoodToggle', 'hoodToggleVal', 'hoodDetails', 'hoodDown', 'hoodUp', 'hoodMinVal', 'soundDetails', 'soundOffNote', 'listenBtn', 'threshold', 'thresholdVal', 'durDown', 'durUp', 'durVal', 'calibrate',
       'fromDown', 'fromUp', 'fromVal', 'toDown', 'toUp', 'toVal', 'lockInfo', 'testLight', 'closePanel'
     ].forEach(function (id) { el[id] = $(id); });
 
