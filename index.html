@@ -96,6 +96,9 @@
     color: #000; opacity: 0;
     transition: opacity 600ms ease;
   }
+  /* bez tlačidla digestora je na ploche viac miesta → hodiny a odpočet o štvrtinu väčšie */
+  body:not(.hood-on) #clock { font-size: 25vw; font-size: min(25vw, 27.5vh); font-size: min(25vw, 27.5svh); }
+  body:not(.hood-on) #countdown { font-size: 31.25vw; font-size: min(31.25vw, 35vh); font-size: min(31.25vw, 35svh); }
   #countdown.show { opacity: .9; }
   #countdown.dim { color: #b04400; }
   #countdown.dim.show { opacity: .9; }
@@ -457,7 +460,7 @@
   try { if (window.top !== window.self) return; } catch (e) { return; }
 
   // ---------- Konštanty ----------
-  var APP_VERSION = '2.0';
+  var APP_VERSION = '2.1';
   var STORAGE_KEY = 'nocne-svetlo-v1';
   var SETTINGS_VERSION = 7;
   var COLORS = { orange: '#FF5A00', red: '#FF1000' };
